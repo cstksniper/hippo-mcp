@@ -63,6 +63,27 @@ def read_pooling_config(model_dir: str) -> dict:
         return json.load(f)
 
 
+def pooling_mode_and_dim(pooling: dict) -> tuple[str, int]:
+    """Normalize the pooling mode + embedding dim from **either** schema.
+
+    Two generations exist in the wild and both must work (hit in CI on
+    2026-11-22): sentence-transformers 4.x writes boolean flags
+    (``pooling_mode_cls_token: true`` + ``word_embedding_dimension``), 5.x
+    writes a plain string (``pooling_mode: "cls"`` + ``embedding_dimension``).
+    Returning ``(mode, dim)`` keeps this decision in exactly one place.
+    """
+    if "pooling_mode" in pooling and isinstance(pooling.get("pooling_mode"), str):
+        mode = pooling["pooling_mode"].strip().lower()
+    else:
+        mode = ("cls" if pooling.get("pooling_mode_cls_token")
+                else "mean" if pooling.get("pooling_mode_mean_tokens")
+                else "max" if pooling.get("pooling_mode_max_tokens")
+                else "")
+    dim = int(pooling.get("word_embedding_dimension")
+              or pooling.get("embedding_dimension") or 0)
+    return mode, dim
+
+
 def _calib_sentences(limit: int) -> list[str]:
     """Calibration corpus: prefer the ``--calib`` file (one sentence per line);
     default samples read-only from **real memory libraries**.
@@ -230,16 +251,8 @@ def main() -> int:
         return 1
 
     pooling = read_pooling_config(model_dir)
-    mode = (
-        "cls"
-        if pooling.get("pooling_mode_cls_token")
-        else "mean"
-        if pooling.get("pooling_mode_mean_tokens")
-        else "max"
-        if pooling.get("pooling_mode_max_tokens")
-        else ""
-    )
-    if not mode:
+    mode, dim = pooling_mode_and_dim(pooling)
+    if mode not in ("cls", "mean", "max") or dim <= 0:
         print(f"[FAIL] unrecognized pooling config: {pooling}", file=sys.stderr)
         return 1
 
@@ -321,9 +334,9 @@ def main() -> int:
         # onnx_embedder.py); when missing it used to fall back ``or 768`` to
         # bge's dim => the LNN core was built for 768 while vectors came out
         # 384, and the first ingest exploded on a matmul shape mismatch
-        # (hit in practice). Reading the nested pooling_config form is an
-        # src/ change; reconsidered after M6.
-        "word_embedding_dimension": int(pooling.get("word_embedding_dimension", 0)),
+        # (hit in practice). Both ST schemas normalize to it via
+        # pooling_mode_and_dim().
+        "word_embedding_dimension": dim,
         "max_seq_length": int(
             json.load(
                 open(os.path.join(model_dir, "sentence_bert_config.json"), "r", encoding="utf-8")
