@@ -93,6 +93,9 @@ logger = logging.getLogger(__name__)
 # a PROCESS death (exit 139), not a Python ImportError, so `except ImportError`
 # around the real import cannot catch it.  Probe in a CHILD process instead:
 # a crash stays in the child and we can turn it into a diagnostic error.
+# 2026-11-23: the interim <3.13 install cap was removed — standard CPython
+# 3.13 + onnxruntime 1.20-1.32 verified clean end-to-end; this guard remains
+# the net for build-specific crashes (conda distributions, free-threaded, ...).
 _PROBE_CODE = "import onnxruntime"
 
 
@@ -142,13 +145,18 @@ def _guard_probe_result(ok: bool, detail: str, *, python_version: str | None = N
     if ok:
         return ""
     pv = python_version or sys.version.split()[0]
-    return (
+    msg = (
         "onnxruntime failed to import in this interpreter (Python %s): %s\n"
         "This is usually a native (access-violation) crash on Python 3.13. "
         "Fix: use Python 3.11/3.12, or set HIPPOCAMPUS_EMB_BACKEND=torch "
         "with `pip install 'hippo-mcp[torch]'`."
         % (pv, (detail or "")[:400])
     )
+    import sysconfig
+    if sysconfig.get_config_var("Py_GIL_DISABLED"):
+        msg += ("\nNote: this is a free-threaded (no-GIL) interpreter; onnxruntime "
+                "does not ship Windows wheels for it — use a standard CPython build.")
+    return msg
 
 
 def _raise_on_bad_probe(ok: bool, detail: str, *, python_version: str | None = None) -> None:

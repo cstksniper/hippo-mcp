@@ -12,13 +12,18 @@ process silently disappears the first time an embedding is needed, and the
 host only sees "Not connected" with no diagnostic anywhere.
 
 The fix has two layers, both asserted here:
-  L1 (source install): ``pyproject.toml`` caps ``requires-python`` at <3.13
-     so a one-line install never picks a known-broken interpreter.
+  L1 (source install): ``pyproject.toml`` has NO upper cap on
+     ``requires-python`` — standard CPython 3.13 + onnxruntime 1.20-1.32
+     verified clean end-to-end on Windows (2026-11-23), so blocking 3.13
+     installs punished healthy interpreters for one broken build class; the
+     free-threaded 3.13t variant cannot even install onnxruntime from pip on
+     Windows (clean resolver error, no crash window).
   L2 (runtime guard): ``onnx_import_probe()`` spawns a *child process* to
      import onnxruntime — a native crash there stays in the child — and
      ``_load_model`` turns a failed probe into a diagnostic ImportError
      (which warmup's ``except BaseException`` can record as fatal) instead
-     of letting the main process die wordlessly.
+     of letting the main process die wordlessly.  L2 is the sole net against
+     build-specific crashes (conda distributions, exotic builds).
 
 Three groups:
   A — behavior: probe returns (True, ...) when import works; the guard helper
@@ -27,9 +32,9 @@ Three groups:
   B — negative control: a simulated crashing probe (return code 139 with an
       access-violation trace) MUST make the guard raise; a healthy probe MUST
       NOT.  Mutating the guard to ignore probe failures is falsifiable here.
-  C — source-level: pyproject caps Python <3.13; _load_model calls the probe
-      *before* the real ``import onnxruntime``; the check order in
-      _attach_onnx (O3 of test_install_surface) is preserved.
+  C — source-level: pyproject declares 3.13 support uncapped; _load_model
+      calls the probe *before* the real ``import onnxruntime``; the check
+      order in _attach_onnx (O3 of test_install_surface) is preserved.
 """
 from __future__ import annotations
 
@@ -114,11 +119,11 @@ def main() -> int:
 
     section("C: source-level wiring")
     pyproject = open(os.path.join(ROOT, "pyproject.toml"), "r", encoding="utf-8").read()
-    check('requires-python = ">=3.11,<3.13"' in pyproject,
-          "C1 pyproject caps Python at <3.13",
+    check('requires-python = ">=3.11"' in pyproject and "<3.13" not in pyproject,
+          "C1 pyproject has NO py3.13 upper cap (requires-python = >=3.11 uncapped)",
           [l for l in pyproject.splitlines() if "requires-python" in l])
-    check('"Programming Language :: Python :: 3.13"' not in pyproject,
-          "C2 3.13 classifier removed")
+    check('"Programming Language :: Python :: 3.13"' in pyproject,
+          "C2 3.13 classifier declared")
 
     oe_src = os.path.join(ROOT, "src", "hippocampus_mcp", "engine", "onnx_embedder.py")
     load = _function_source(oe_src, "_load_model")
