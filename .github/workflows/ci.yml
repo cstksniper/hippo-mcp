@@ -152,7 +152,7 @@ jobs:
         run: |
           python -m venv "$RUNNER_TEMP/user_venv"
           "$RUNNER_TEMP/user_venv/bin/pip" install --upgrade pip
-          "$RUNNER_TEMP/user_venv/bin/pip" install dist/hippocampus_mcp-*.whl
+          "$RUNNER_TEMP/user_venv/bin/pip" install dist/hippo_mcp-*.whl
           "$RUNNER_TEMP/user_venv/bin/python" -m pip show mcp | head -3
 
       # New-user path acceptance
