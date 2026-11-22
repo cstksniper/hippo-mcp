@@ -71,6 +71,35 @@ def test_fetch_urls_order(monkeypatch: pytest.MonkeyPatch) -> None:
     assert urls[2].startswith("https://github.com/")
 
 
+def test_asset_candidates_includes_api_route(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Order: env override > api.github.com asset route > direct > mirror.
+
+    The API route exists because on some lines github.com:443 is blocked while
+    api.github.com + the objects CDN pass (hit 2026-11-22).
+    """
+    monkeypatch.delenv(model_fetch.ENV_FETCH_URLS, raising=False)
+    monkeypatch.setattr(model_fetch, "_resolve_api_asset_url",
+                        lambda a: "https://api.github.com/repos/x/releases/assets/1")
+    cands = model_fetch.asset_candidates("foo.zip")
+    assert cands[0][0].startswith("https://api.github.com/")
+    assert cands[0][1] == {"Accept": "application/octet-stream"}
+    assert cands[1][0].startswith("https://github.com/")
+    assert cands[2][0].startswith(model_fetch.MIRROR_PREFIX + "/")
+
+
+def test_asset_candidates_api_failure_is_skipped(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A dead API route degrades to direct+mirror instead of failing."""
+    monkeypatch.delenv(model_fetch.ENV_FETCH_URLS, raising=False)
+
+    def boom(_a: str):
+        raise TimeoutError("api down")
+
+    monkeypatch.setattr(model_fetch, "_resolve_api_asset_url", boom)
+    cands = model_fetch.asset_candidates("foo.zip")
+    assert len(cands) == 2  # direct + mirror, no API entry
+    assert cands[0][0].startswith("https://github.com/")
+
+
 # --------------------------------------------------------------------------
 # Local HTTP server harness
 # --------------------------------------------------------------------------
@@ -151,11 +180,11 @@ def test_download_verifies_sha256(file_server) -> None:
     dest = Path(_tmpdir()) / "blob2.bin"
     # Wrong expectation must fail and leave no part file behind.
     with pytest.raises(FetchError):
-        _download([srv.url("blob.bin")], str(dest), expected_sha256="0" * 64)
+        _download([(srv.url("blob.bin"), {})], str(dest), expected_sha256="0" * 64)
     assert not dest.exists() and not Path(str(dest) + ".part").exists()
     # Correct expectation lands the full content.
     good = hashlib.sha256(payload).hexdigest()
-    _download([srv.url("blob.bin")], str(dest), expected_sha256=good)
+    _download([(srv.url("blob.bin"), {})], str(dest), expected_sha256=good)
     assert dest.read_bytes() == payload
 
 
@@ -163,7 +192,7 @@ def test_download_falls_back_to_next_url(file_server) -> None:
     payload = b"payload-through-fallback"
     srv = file_server({"real.bin": payload})
     dest = Path(_tmpdir()) / "fallback.bin"
-    _download([srv.url("missing.bin"), srv.url("real.bin")], str(dest))
+    _download([(srv.url("missing.bin"), {}), (srv.url("real.bin"), {})], str(dest))
     assert dest.read_bytes() == payload
 
 
@@ -174,7 +203,7 @@ def test_download_resumes_from_part(file_server) -> None:
     part = Path(str(dest) + ".part")
     half = len(payload) // 2
     part.write_bytes(payload[:half])
-    _download([srv.url("blob.bin")], str(dest))
+    _download([(srv.url("blob.bin"), {})], str(dest))
     assert dest.read_bytes() == payload
     assert srv.range_seen and srv.range_seen[0] == f"bytes={half}-"
 
@@ -184,7 +213,7 @@ def test_download_restarts_when_server_ignores_range(file_server) -> None:
     srv = file_server({"blob.bin": payload}, support_range=False)
     dest = Path(_tmpdir()) / "restart.bin"
     Path(str(dest) + ".part").write_bytes(b"stale-half")
-    _download([srv.url("blob.bin")], str(dest))
+    _download([(srv.url("blob.bin"), {})], str(dest))
     assert dest.read_bytes() == payload
 
 

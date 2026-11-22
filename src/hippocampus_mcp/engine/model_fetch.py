@@ -30,6 +30,7 @@ Reliability contract:
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import shutil
 import sys
@@ -50,6 +51,11 @@ __all__ = [
 BUNDLE_RELEASE_TAG = "model-bundles"
 #: Public repo that publishes the release.
 BUNDLE_REPO = "cstksniper/hippocampus-mcp"
+#: api.github.com asset route: resolves to the objects CDN without ever
+#: touching ``github.com:443`` — on some mainland lines github.com is blocked
+#: while api.github.com + the objects CDN pass (hit 2026-11-22). This route
+#: is therefore tried before the release-download URL.
+BUNDLE_API_BASE = f"https://api.github.com/repos/{BUNDLE_REPO}"
 #: Mirrors are third-party services: they are a fallback, never a trust root
 #: (sha256 verification is the trust root).
 MIRROR_PREFIX = "https://ghproxy.net/https://github.com"
@@ -90,7 +96,11 @@ def asset_name_for_model(model_name: str) -> str:
 
 
 def fetch_urls(asset: str) -> list[str]:
-    """Ordered candidate URLs for one asset (env override > direct > mirror)."""
+    """Ordered candidate URLs for one asset (env override > direct > mirror).
+
+    Kept for display/diagnostics; the downloader uses :func:`asset_candidates`
+    which additionally resolves the api.github.com asset route.
+    """
     direct = (f"https://github.com/{BUNDLE_REPO}/releases/download/"
               f"{BUNDLE_RELEASE_TAG}/{asset}")
     urls: list[str] = []
@@ -104,6 +114,58 @@ def fetch_urls(asset: str) -> list[str]:
     urls.append(f"{MIRROR_PREFIX}/{BUNDLE_REPO}/releases/download/"
                 f"{BUNDLE_RELEASE_TAG}/{asset}")
     return urls
+
+
+def _resolve_api_asset_url(asset: str) -> str | None:
+    """Resolve one asset's api.github.com URL via the release listing.
+
+    Returns None (instead of raising) when the API is unreachable, rate-limited
+    or the asset is absent — the candidate list simply moves on to the next
+    route. Unauthenticated calls are fine (60/h per IP; a fetch makes two).
+    """
+    try:
+        req = urllib.request.Request(
+            f"{BUNDLE_API_BASE}/releases/tags/{BUNDLE_RELEASE_TAG}",
+            headers={"Accept": "application/json"})
+        with urllib.request.urlopen(req, timeout=CONNECT_TIMEOUT) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        for info in data.get("assets", []):
+            if info.get("name") == asset and info.get("url"):
+                return info["url"]
+    except Exception as exc:  # noqa: BLE001 - a dead API route is not fatal
+        print(f"  [fetch] api.github.com route unavailable ({type(exc).__name__}); "
+              "falling back to direct/mirror URLs", flush=True)
+    return None
+
+
+def asset_candidates(asset: str) -> list[tuple[str, dict]]:
+    """Ordered ``(url, headers)`` candidates for one asset.
+
+    Order: ``HIPPOCAMPUS_FETCH_URLS`` env override > api.github.com asset
+    route (bypasses the blocked github.com:443, lands on the objects CDN) >
+    github.com release-download direct > ghproxy.net mirror. sha256
+    verification is the trust root regardless of the route used.
+    """
+    cands: list[tuple[str, dict]] = []
+    env = os.environ.get(ENV_FETCH_URLS, "").strip()
+    if env:
+        for tpl in env.split(","):
+            tpl = tpl.strip()
+            if tpl:
+                cands.append((tpl.replace("{asset}", asset), {}))
+    api_url = ""
+    try:
+        api_url = _resolve_api_asset_url(asset) or ""
+    except Exception as exc:  # noqa: BLE001 - a dead API route is not fatal
+        print(f"  [fetch] api.github.com route unavailable ({type(exc).__name__}); "
+              "falling back to direct/mirror URLs", flush=True)
+    if api_url:
+        cands.append((api_url, {"Accept": "application/octet-stream"}))
+    cands.append((f"https://github.com/{BUNDLE_REPO}/releases/download/"
+                  f"{BUNDLE_RELEASE_TAG}/{asset}", {}))
+    cands.append((f"{MIRROR_PREFIX}/{BUNDLE_REPO}/releases/download/"
+                  f"{BUNDLE_RELEASE_TAG}/{asset}", {}))
+    return cands
 
 
 def _sha256_file(path: str) -> str:
@@ -136,20 +198,21 @@ def _parse_sha256sums(text: str) -> dict[str, str]:
     return out
 
 
-def _download(url_list: list[str], dest: str, *,
+def _download(candidates: list[tuple[str, dict]], dest: str, *,
               expected_sha256: str = "", progress_label: str = "") -> None:
-    """Download one file trying the URL list in order, with Range resume.
+    """Download one file trying the (url, headers) candidates in order, with
+    Range resume.
 
     ``.part`` carries partial state across attempts; a server that ignores
     Range (answers 200 instead of 206) restarts cleanly. Verification happens
     once, after the final byte lands.
     """
     part = dest + ".part"
-    for url in url_list:
+    for url, headers in candidates:
         for attempt in range(1, MAX_ATTEMPTS_PER_URL + 1):
             try:
                 have = os.path.getsize(part) if os.path.isfile(part) else 0
-                req = urllib.request.Request(url)
+                req = urllib.request.Request(url, headers=headers or {})
                 if have > 0:
                     req.add_header("Range", f"bytes={have}-")
                 started = time.time()
@@ -261,10 +324,11 @@ def fetch_model_bundle(model_name: str, cache_root: str, *, probe: bool = True) 
     report: dict = {"status": "fetched", "model": model_name, "dir": dest_dir,
                     "backend": "onnx"}
     try:
-        # 1) SHA256SUMS (same URL policy; tiny). Missing sums => refuse rather
-        #    than trusting an unverified 388MB payload.
+        # 1) SHA256SUMS (same candidate policy; tiny). Missing sums => refuse
+        #    rather than trusting an unverified 237MB payload.
         sums_path = os.path.join(tmp_dir, SHA256SUMS_ASSET)
-        _download(fetch_urls(SHA256SUMS_ASSET), sums_path, progress_label=SHA256SUMS_ASSET)
+        _download(asset_candidates(SHA256SUMS_ASSET), sums_path,
+                  progress_label=SHA256SUMS_ASSET)
         sums = _parse_sha256sums(open(sums_path, "r", encoding="utf-8").read())
         if asset not in sums:
             raise FetchError(
@@ -274,7 +338,7 @@ def fetch_model_bundle(model_name: str, cache_root: str, *, probe: bool = True) 
         # 2) The bundle itself.
         zip_path = os.path.join(tmp_dir, asset)
         print(f"[fetch] downloading {asset} ...", flush=True)
-        _download(fetch_urls(asset), zip_path, expected_sha256=sums[asset],
+        _download(asset_candidates(asset), zip_path, expected_sha256=sums[asset],
                   progress_label=asset)
 
         # 3) Unpack + inner-manifest verification + placement.
