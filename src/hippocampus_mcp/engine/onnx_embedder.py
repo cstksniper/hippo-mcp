@@ -87,6 +87,77 @@ _ENCODE_LOCK = threading.RLock()
 
 logger = logging.getLogger(__name__)
 
+# --- py3.13 onnxruntime native-crash guard (2026-11-22, K-drive DSH) --------
+# Windows + some Python 3.13 builds die with a native `access violation`
+# inside onnxruntime/capi/_pybind_state.py:create_module on `import`.  That is
+# a PROCESS death (exit 139), not a Python ImportError, so `except ImportError`
+# around the real import cannot catch it.  Probe in a CHILD process instead:
+# a crash stays in the child and we can turn it into a diagnostic error.
+_PROBE_CODE = "import onnxruntime"
+
+
+@functools.lru_cache(maxsize=1)
+def onnx_import_probe() -> tuple[bool, str]:
+    """Import onnxruntime in a short-lived child; return (ok, detail).
+
+    Never raises: a native crash shows up as a non-zero return code (139 /
+    -1073741819 on Windows), which is exactly the signal the old in-process
+    import could never observe.  Cached per process — the probe costs one
+    interpreter start, paid once at first embed.
+    """
+    import subprocess
+    try:
+        cp = subprocess.run(
+            [sys.executable, "-c", _PROBE_CODE],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            timeout=120,
+        )
+        out = (cp.stderr or b"").decode("utf-8", "replace")
+        if cp.returncode == 0:
+            return True, out.strip()
+        # Windows native crash codes: 0xC0000005 = access violation; a plain
+        # negative code also means a fatal signal. Make both self-describing.
+        rc = cp.returncode
+        if rc < 0 or rc in (0xC0000005, 3221225477):
+            native = "native crash / access violation (exit code %d)" % (rc & 0xFFFFFFFF)
+        else:
+            native = "child exited with code %d" % rc
+        return False, (out.strip() + " | " + native) if out.strip() else native
+    except Exception as exc:  # noqa: BLE001 probe must never break the caller
+        # If spawning is blocked (sandbox / restricted host), do NOT turn that
+        # into a false "ORT is broken" verdict — fall through to the real
+        # import, which has its own ImportError handling. The guard targets
+        # the observed native crash, not an inability to spawn a probe.
+        logger.warning("onnx import probe could not run (%r); falling through "
+                       "to the in-process import", exc)
+        return True, "probe unavailable: %r" % (exc,)
+
+
+def _guard_probe_result(ok: bool, detail: str, *, python_version: str | None = None) -> str:
+    """Return a diagnostic message when `ok` is False, else "".
+
+    Pure helper (no side effects) so the behaviour is unit-testable without
+    actually spawning a crashing interpreter.
+    """
+    if ok:
+        return ""
+    pv = python_version or sys.version.split()[0]
+    return (
+        "onnxruntime failed to import in this interpreter (Python %s): %s\n"
+        "This is usually a native (access-violation) crash on Python 3.13. "
+        "Fix: use Python 3.11/3.12, or set HIPPOCAMPUS_EMB_BACKEND=torch "
+        "with `pip install 'hippo-mcp[torch]'`."
+        % (pv, (detail or "")[:400])
+    )
+
+
+def _raise_on_bad_probe(ok: bool, detail: str, *, python_version: str | None = None) -> None:
+    """Raise a diagnostic ImportError if the child probe failed."""
+    msg = _guard_probe_result(ok, detail, python_version=python_version)
+    if msg:
+        raise ImportError(msg)
+
+
 #: Environment variable: select the embedding backend (torch / onnx / auto)
 ENV_BACKEND = "HIPPOCAMPUS_EMB_BACKEND"
 
@@ -281,6 +352,10 @@ class OnnxEmbedder:
 
     def _load_model(self) -> None:
         """Load the onnxruntime session and the Rust tokenizer (**neither needs torch**)."""
+        # py3.13 native-crash guard: probe in a child process first so an
+        # access violation cannot silently kill this (MCP server) process.
+        _probe_ok, _probe_detail = onnx_import_probe()
+        _raise_on_bad_probe(_probe_ok, _probe_detail)
         try:
             import onnxruntime as ort
         except ImportError as e:  # pragma: no cover - missing-dependency branch
