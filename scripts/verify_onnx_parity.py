@@ -82,10 +82,13 @@ def main() -> int:
         flag = "ok" if c >= args.threshold else "FAIL"
         print(f"  doc[{i}] cos={c:.6f} {flag}  {PROBE_SENTENCES[i][:24]!r}")
 
-    # Query path: bge models prepend the official instruction prefix; the onnx
-    # embedder must replicate it (embed_query) to match torch retrieval behavior.
+    # Query path: only bge models carry the official instruction prefix —
+    # applying it to non-bge models compares two DIFFERENT inputs (hit in CI:
+    # MiniLM query cos 0.787 with doc cos 1.000000). For non-bge models
+    # embed_query == embed, so compare the plain sentence.
     q = PROBE_SENTENCES[0]
-    st_q = st.encode([BGE_ZH_QUERY_PREFIX + q], show_progress_bar=False)[0].astype(np.float64)
+    prefix = BGE_ZH_QUERY_PREFIX if onnx.is_bge else ""
+    st_q = st.encode([prefix + q], show_progress_bar=False)[0].astype(np.float64)
     onnx_q = onnx.embed_query(q)
     cq = _cos(st_q, onnx_q)
     print(f"  query    cos={cq:.6f} {'ok' if cq >= args.threshold else 'FAIL'}")
