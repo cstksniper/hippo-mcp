@@ -212,7 +212,12 @@ def _download(candidates: list[tuple[str, dict]], dest: str, *,
         for attempt in range(1, MAX_ATTEMPTS_PER_URL + 1):
             try:
                 have = os.path.getsize(part) if os.path.isfile(part) else 0
-                req = urllib.request.Request(url, headers=headers or {})
+                req_headers = dict(headers or {})
+                # Never let a CDN pick a transparent encoding: urllib does not
+                # decode content-encoding, so gzip/br bytes would fail the
+                # sha256 trust root with no visible cause.
+                req_headers.setdefault("Accept-Encoding", "identity")
+                req = urllib.request.Request(url, headers=req_headers)
                 if have > 0:
                     req.add_header("Range", f"bytes={have}-")
                 started = time.time()
@@ -221,6 +226,17 @@ def _download(candidates: list[tuple[str, dict]], dest: str, *,
                     if have > 0 and status != 206:
                         # Server ignored the Range header: restart from zero.
                         have = 0
+                    elif have > 0 and status == 206:
+                        # Verify the server actually resumed WHERE we asked:
+                        # a 206 for a different range mixed into an append
+                        # corrupts the file silently (defensive; hit class:
+                        # signed-CDN routes that mishandle Range).
+                        cr = resp.headers.get("Content-Range", "")
+                        want_prefix = f"bytes {have}-"
+                        if cr and not cr.startswith(want_prefix):
+                            print(f"  [fetch] server resumed at {cr!r} != requested "
+                                  f"{want_prefix}; restarting from zero", flush=True)
+                            have = 0
                     mode = "ab" if have > 0 else "wb"
                     total = None
                     length = resp.headers.get("Content-Length")
