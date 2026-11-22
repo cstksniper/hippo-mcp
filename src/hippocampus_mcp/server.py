@@ -422,14 +422,14 @@ def _create_server() -> Any:
 
     try:
         return MCPServer(
-            name="hippocampus-mcp",
+            name="hippo-mcp",
             version=_pkg_version,
             description="Agent memory layer: four-layer memory + entity index + session lifecycle",
             instructions=_INSTRUCTIONS,
         )
     except TypeError:
         # FastMCP (mcp >= 1.0): accepts only name/instructions
-        return MCPServer(name="hippocampus-mcp", instructions=_INSTRUCTIONS)
+        return MCPServer(name="hippo-mcp", instructions=_INSTRUCTIONS)
 
 
 server = _create_server()

@@ -258,6 +258,24 @@ def l0_health(snapshot: dict[str, Any]) -> dict[str, int]:
             "orphan_raw": len(raw_ids - referenced)}
 
 
+def _tag_matches(tags: Any, tag_filter: dict[str, Any]) -> bool:
+    """P6 diary-view filter semantics.
+
+    ``{"key": None}`` (bare ``--tag key``) = the key must be present;
+    ``{"key": "value"}`` = string-exact match, case-insensitive
+    (``true``/``false`` compare equal to JSON booleans stored in tags).
+    """
+    t = tags if isinstance(tags, dict) else {}
+    for k, v in tag_filter.items():
+        if k not in t:
+            return False
+        if v is None:
+            continue
+        if str(t.get(k)).lower() != str(v).lower():
+            return False
+    return True
+
+
 def aggregate(
     snapshot: dict[str, Any],
     *,
@@ -268,11 +286,16 @@ def aggregate(
     miss_limit: int = 20,
     top_entities: int = 10,
     pin_threshold: float = PIN_THRESHOLD_DEFAULT,
+    tag_filter: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build the one aggregated structure both renderers consume.
 
     Counts are computed **once** here; markdown and HTML must render from
     this same dict so the two channels can never disagree (plan §4.2).
+
+    ``tag_filter`` (P6 diary view): when given, only entries whose tags
+    match every ``key``/``key=value`` pair enter the entries pool — library
+    level health/counters below still see the whole library.
 
     Raises:
         TreePrivacyError: ``full=True`` on the user library (no bypass for
@@ -290,6 +313,9 @@ def aggregate(
     by_state = Counter(str(r.get("state") or "active") for r in records)
     included = [r for r in records
                 if str(r.get("state") or "active") in include_states]
+    if tag_filter:
+        included = [r for r in included
+                    if _tag_matches(r.get("tags"), tag_filter)]
 
     _, entity_reverse = _entities_index(layers)
 

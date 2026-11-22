@@ -1,7 +1,7 @@
 name: Model bundles
 
 # Builds the onnx embedding bundles published on the `model-bundles` release
-# (consumed by `hippocampus-mcp models --fetch`, see engine/model_fetch.py).
+# (consumed by `hippo-mcp models --fetch`, see engine/model_fetch.py).
 # Manual dispatch only: the export needs torch and a full model download, so
 # it never belongs on push/PR lanes.
 
@@ -95,7 +95,7 @@ jobs:
             || gh release create model-bundles \
                  --repo "$GITHUB_REPOSITORY" \
                  --title "Embedding model bundles (onnx)" \
-                 --notes "Pre-exported onnx bundles for \`hippocampus-mcp models --fetch\`. Rebuilt and re-uploaded (clobber) on every workflow run; SHA256SUMS.txt is the trust root, mirrors are not."
+                 --notes "Pre-exported onnx bundles for \`hippo-mcp models --fetch\`. Rebuilt and re-uploaded (clobber) on every workflow run; SHA256SUMS.txt is the trust root, mirrors are not."
           gh release upload model-bundles --repo "$GITHUB_REPOSITORY" --clobber \
             staging-merged/bge-base-zh-v1.5-onnx.zip \
             staging-merged/all-MiniLM-L6-v2-onnx.zip \

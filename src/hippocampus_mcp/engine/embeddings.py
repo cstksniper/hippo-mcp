@@ -396,7 +396,7 @@ def prospective_embedder_backend(model_name: str) -> str:
     - ``torch-download`` -- no local dir yet, but ST is importable (first
       start would download via the torch path);
     - ``hash``           -- nothing available (degraded: semantic recall is
-      broken; run ``hippocampus-mcp models --fetch``).
+      broken; run ``hippo-mcp models --fetch``).
     """
     roots = _cache_roots(_default_libs_path())
     local = local_model_dir(model_name, roots)
@@ -1028,7 +1028,7 @@ class SentenceTransformerEmbedder:
             # [torch] extra, not the core install — the hint must say so.
             raise ImportError(
                 "sentence_transformers is not installed in this interpreter. "
-                "Install the torch extra: `pip install \"hippocampus-mcp[torch]\"` "
+                "Install the torch extra: `pip install \"hippo-mcp[torch]\"` "
                 "(or `pip install sentence-transformers` here).\n"
                 f"Error: {e}\n"
                 f"libs_path: {self._libs_path}"

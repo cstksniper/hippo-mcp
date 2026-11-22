@@ -30,7 +30,13 @@ _os.environ.setdefault("OPENBLAS_NUM_THREADS", "4")
 try:
     from importlib.metadata import version as _dist_version
 
-    __version__ = _dist_version("hippocampus-mcp")
+    # 2026-11-22 brand rename hippocampus-mcp -> hippo-mcp: the installed dist is
+    # now hippo-mcp, but envs not yet reinstalled still carry the pre-rename dist
+    # name, so both are probed before honestly reporting "no installed dist".
+    try:
+        __version__ = _dist_version("hippo-mcp")
+    except Exception:  # noqa: BLE001 -- pre-rename dist name still installed
+        __version__ = _dist_version("hippocampus-mcp")
 except Exception:  # noqa: BLE001 -- no installed dist metadata: report honestly
     __version__ = "0.0.0+unknown"
 

@@ -86,7 +86,7 @@ def _load_onnx_meta(model_dir: str) -> dict:
 def _write_license_readme(path: str, *, source_repo: str, model_dir: str,
                           license_file: str) -> None:
     lines = [
-        "hippocampus-mcp onnx model bundle",
+        "hippo-mcp onnx model bundle",
         "=" * 40,
         "",
         f"Model directory name : {os.path.basename(os.path.abspath(model_dir))}",

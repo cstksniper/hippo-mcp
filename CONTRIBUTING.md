@@ -10,7 +10,7 @@ incidents, not style preferences.
 
 ```bash
 git clone <your fork>
-cd hippocampus-mcp
+cd hippo-mcp
 
 # Base dependencies
 pip install -e .

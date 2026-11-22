@@ -171,3 +171,37 @@ def classify_sensitivity(
     cats = sorted(seen)
     return {"level": "sensitive" if cats else "clean",
             "categories": cats, "hits": hits}
+
+
+# ---------------------------------------------------------------------------
+# P5 visibility gate (2026-11-22): promoting records to the public tier
+# (``tags.vis = "public"``) is credential-gated. Pure function over
+# (new_tags, (memory_id, content) pairs); the ``brain.update_tags`` shell
+# calls it right after record selection and fails the whole run closed
+# (dry_run included) — a batch with credential-class hits never reaches the
+# plan builder. The public-facing read path (``recall`` with
+# ``filter_tags={"vis": "public"}``) runs the same scan again against its
+# final entries — the second half of the double gate against historical
+# unlabeled data.
+
+
+def gate_vis_public(
+    new_tags: Any,
+    entries: "Iterable[tuple[str, str]]",
+) -> list[dict[str, Any]]:
+    """Credential hits for a ``vis: public`` promotion; ``[]`` = clean.
+
+    Not a public promotion (no ``vis`` key, or value ≠ ``"public"``) →
+    ``[]`` without scanning anything. Non-empty = the whole
+    ``update_tags`` run must fail closed; hits are capped at 10 entries
+    for the error body.
+    """
+    if not isinstance(new_tags, dict) or str(new_tags.get("vis", "")) != "public":
+        return []
+    hits: list[dict[str, Any]] = []
+    for rid, content in entries:
+        for h in match_sensitive(content or ""):
+            hits.append({"memory_id": rid, "kind": h["kind"], "word": h["word"]})
+            if len(hits) >= 10:
+                return hits
+    return hits

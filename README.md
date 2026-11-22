@@ -1,15 +1,18 @@
 # HippoMCP
 
-<!-- mcp-name: io.github.cstksniper/hippocampus-mcp -->
+<!-- mcp-name: io.github.cstksniper/hippo-mcp -->
 
 **A memory system built for AI agents.**
 
-**MCP name:** `io.github.cstksniper/hippocampus-mcp` · **PyPI:** `hippocampus-mcp` · **Python:** 3.11+
+**MCP name:** `io.github.cstksniper/hippo-mcp` · **PyPI:** `hippo-mcp` · **Python:** 3.11+
 
-**English** ｜ [简体中文](https://github.com/cstksniper/hippocampus-mcp/blob/main/README.zh-CN.md)
+> Renamed from `hippocampus-mcp` (2026-11-22): same project, shorter name. The legacy
+> PyPI package `hippocampus-mcp` stays installable but is frozen at its final release.
 
-[![CI](https://github.com/cstksniper/hippocampus-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/cstksniper/hippocampus-mcp/actions/workflows/ci.yml)
-[![PyPI](https://img.shields.io/pypi/v/hippocampus-mcp)](https://pypi.org/project/hippocampus-mcp/)
+**English** ｜ [简体中文](https://github.com/cstksniper/hippo-mcp/blob/main/README.zh-CN.md)
+
+[![CI](https://github.com/cstksniper/hippo-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/cstksniper/hippo-mcp/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/hippo-mcp)](https://pypi.org/project/hippo-mcp/)
 ![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)
 ![License: MIT](https://img.shields.io/badge/license-MIT-green)
 
@@ -28,8 +31,8 @@ lifecycle underneath it.
 
 **Usable by an agent, out of the box**
 
-- One-line install: `pip install hippocampus-mcp`, then `hippocampus-mcp install` writes the host
-  config, memory hooks, and diagnostics; `hippocampus-mcp init --project .` binds a new project with
+- One-line install: `pip install hippo-mcp`, then `hippo-mcp install` writes the host
+  config, memory hooks, and diagnostics; `hippo-mcp init --project .` binds a new project with
   zero manual steps.
 - **Automatic memory hooks** (ZCode): per-turn context injection with cross-turn deduplication,
   a session bootstrap (pinned facts / open todos / recent sessions / unfinished topics) at every
@@ -110,7 +113,7 @@ Agent-assisted selection works best when the agent is asked to verify claims, no
 <summary><strong>Prompt: help me choose a memory system</strong></summary>
 
 ```text
-Compare HippoMCP (https://github.com/cstksniper/hippocampus-mcp)
+Compare HippoMCP (https://github.com/cstksniper/hippo-mcp)
 with [my current or alternative memory system] for [describe my workflow].
 
 Evaluate local deployment and privacy, continuity across sessions and context
@@ -133,8 +136,8 @@ trade-offs, then let me decide.
 Install HippoMCP for my current MCP host. First check that Python is 3.11 or newer.
 
 Use the installation command in the README. Then run:
-1. hippocampus-mcp models --fetch
-2. hippocampus-mcp setup --host <host name>
+1. hippo-mcp models --fetch
+2. hippo-mcp setup --host <host name>
    Determine the host first and choose only from workbuddy / zcode / trae / claude;
    ask me if it is unclear, do not guess (omitting --host errors out when the
    workspace has neither .zcode/ nor .mcp.json).
@@ -156,8 +159,8 @@ how to verify the active library with library_whoami and doctor.
 Requirements: **Python 3.11+** and Git.
 
 ```bash
-git clone https://github.com/cstksniper/hippocampus-mcp.git
-cd hippocampus-mcp
+git clone https://github.com/cstksniper/hippo-mcp.git
+cd hippo-mcp
 python -m pip install -e .
 python examples/quickstart.py
 ```
@@ -185,9 +188,9 @@ python examples/quickstart.py --model sentence-transformers/all-MiniLM-L6-v2
 Install from PyPI (recommended):
 
 ```bash
-python -m pip install hippocampus-mcp
-hippocampus-mcp models --fetch
-hippocampus-mcp install   # or: hippocampus-mcp setup --host zcode
+python -m pip install hippo-mcp
+hippo-mcp models --fetch
+hippo-mcp install   # or: hippo-mcp setup --host zcode
 ```
 
 > The core install is torch-free (~150 MB of dependencies). `models --fetch` downloads a
@@ -197,14 +200,14 @@ hippocampus-mcp install   # or: hippocampus-mcp setup --host zcode
 > takes tens of seconds while the model loads — a one-time cost.
 >
 > China mirrors lag new releases; if pip cannot find the package, retry with the
-> official index: `python -m pip install hippocampus-mcp -i https://pypi.org/simple`
+> official index: `python -m pip install hippo-mcp -i https://pypi.org/simple`
 
 Or install directly from GitHub:
 
 ```bash
-python -m pip install "git+https://github.com/cstksniper/hippocampus-mcp.git"
-hippocampus-mcp models --fetch
-hippocampus-mcp setup --host workbuddy  # replace with yours: workbuddy / zcode / trae / claude
+python -m pip install "git+https://github.com/cstksniper/hippo-mcp.git"
+hippo-mcp models --fetch
+hippo-mcp setup --host workbuddy  # replace with yours: workbuddy / zcode / trae / claude
 ```
 
 `setup` backs up before writing, refuses to overwrite corrupt JSON, changes only its own MCP
@@ -220,7 +223,7 @@ Then **restart the host** and start a new session. Verify the active library and
 
 ```bash
 python -m hippocampus_mcp.cli doctor --host zcode --project .
-hippocampus-mcp models --prune  # list reclaimable model files; does not delete
+hippo-mcp models --prune  # list reclaimable model files; does not delete
 ```
 
 In the new session, call `library_whoami`. If no `mcp__hippocampus__*` tools appear, run the
@@ -233,10 +236,10 @@ module-form `doctor` command above, fix the reported issue, and restart again.
 HippoMCP supplies memory tools; the host agent decides when to call them. Add rules like these
 to your project's `AGENTS.md` or host instructions:
 
-> On ZCode, `hippocampus-mcp install` also sets up automatic memory hooks (per-turn injection,
+> On ZCode, `hippo-mcp install` also sets up automatic memory hooks (per-turn injection,
 > session bootstrap, wrap-up reminder), which enforce the first three rules mechanically. The
 > rules below remain the portable baseline for every other host. An optional observation-capture
-> lane (`hippocampus-mcp install --stop-capture`) archives response highlights for later review;
+> lane (`hippo-mcp install --stop-capture`) archives response highlights for later review;
 > it is **off by default** and never writes to formal memory by itself.
 
 ```text
@@ -287,7 +290,7 @@ flowchart LR
 | Domain vocabulary | Entity lexicons, alias suggestions, and entity relinking for project-specific names and identifiers |
 | Tool surface | 46 MCP tools with profiles; the default profile exposes 10 (8 tools + 2 meta-dispatchers), descriptions cut from 8.3k to 3.4k characters |
 
-See [the architecture guide](https://github.com/cstksniper/hippocampus-mcp/blob/main/docs/ARCHITECTURE.md)
+See [the architecture guide](https://github.com/cstksniper/hippo-mcp/blob/main/docs/ARCHITECTURE.md)
 for layers, flows, scoring formulas, and engineering constraints.
 
 ---
@@ -318,23 +321,23 @@ Each claim maps to the suite that pins it, so an agent can check a claim rather 
 
 | Claim | Pinned by | CI job |
 |---|---|---|
-| Cascade-safe deletion; tombstones stop resurrection | [`test_forget.py`](https://github.com/cstksniper/hippocampus-mcp/blob/main/tests/test_forget.py) (`test_cascade_cleanup`) | `regression` |
-| Superseded facts do not leak into recall | `test_forget.py` (`test_restore_superseded`), [`test_session_lifecycle_bcd.py`](https://github.com/cstksniper/hippocampus-mcp/blob/main/tests/test_session_lifecycle_bcd.py) (`test_c1_supersede`) | `regression` |
-| Concurrent-save layer merge and backend contract | [`test_backend_contract.py`](https://github.com/cstksniper/hippocampus-mcp/blob/main/tests/test_backend_contract.py) | `regression` |
-| Workspace binding; no silent cross-library leak | [`test_workspace_guide.py`](https://github.com/cstksniper/hippocampus-mcp/blob/main/tests/test_workspace_guide.py) | `regression` |
+| Cascade-safe deletion; tombstones stop resurrection | [`test_forget.py`](https://github.com/cstksniper/hippo-mcp/blob/main/tests/test_forget.py) (`test_cascade_cleanup`) | `regression` |
+| Superseded facts do not leak into recall | `test_forget.py` (`test_restore_superseded`), [`test_session_lifecycle_bcd.py`](https://github.com/cstksniper/hippo-mcp/blob/main/tests/test_session_lifecycle_bcd.py) (`test_c1_supersede`) | `regression` |
+| Concurrent-save layer merge and backend contract | [`test_backend_contract.py`](https://github.com/cstksniper/hippo-mcp/blob/main/tests/test_backend_contract.py) | `regression` |
+| Workspace binding; no silent cross-library leak | [`test_workspace_guide.py`](https://github.com/cstksniper/hippo-mcp/blob/main/tests/test_workspace_guide.py) | `regression` |
 | Session bootstrap, compaction recovery, id recycling | `test_session_lifecycle_bcd.py` | `regression` |
-| Dedup merge keeps ids; write echo leads with `merged_into` | [`test_dedup_merge.py`](https://github.com/cstksniper/hippocampus-mcp/blob/main/tests/test_dedup_merge.py), [`test_ingest_echo_contract.py`](https://github.com/cstksniper/hippocampus-mcp/blob/main/tests/test_ingest_echo_contract.py) | `regression` |
-| Clean install and MCP handshake from a fresh venv | [`verify_install_e2e.py`](https://github.com/cstksniper/hippocampus-mcp/blob/main/scripts/verify_install_e2e.py) | `install-e2e` |
+| Dedup merge keeps ids; write echo leads with `merged_into` | [`test_dedup_merge.py`](https://github.com/cstksniper/hippo-mcp/blob/main/tests/test_dedup_merge.py), [`test_ingest_echo_contract.py`](https://github.com/cstksniper/hippo-mcp/blob/main/tests/test_ingest_echo_contract.py) | `regression` |
+| Clean install and MCP handshake from a fresh venv | [`verify_install_e2e.py`](https://github.com/cstksniper/hippo-mcp/blob/main/scripts/verify_install_e2e.py) | `install-e2e` |
 
-See [`ci.yml`](https://github.com/cstksniper/hippocampus-mcp/actions/workflows/ci.yml) for the
+See [`ci.yml`](https://github.com/cstksniper/hippo-mcp/actions/workflows/ci.yml) for the
 `regression`, `smoke`, and `install-e2e` jobs.
 
 For an evaluation on your own workload, use the
-[§7 checklist in `docs/BENCHMARKS.md`](https://github.com/cstksniper/hippocampus-mcp/blob/main/docs/BENCHMARKS.md#7-how-to-evaluate-hippomcp-on-your-own-workload):
+[§7 checklist in `docs/BENCHMARKS.md`](https://github.com/cstksniper/hippo-mcp/blob/main/docs/BENCHMARKS.md#7-how-to-evaluate-hippomcp-on-your-own-workload):
 it needs no judge, no published dataset, and no LLM API key, and is usually more informative
 than comparing small public scores across different memory systems. For deployment-shape and
 correction-semantics differences, see
-[§5 of the selection guide](https://github.com/cstksniper/hippocampus-mcp/blob/main/docs/SELECTION.md#5-other-memory-approaches-boundary-comparison)
+[§5 of the selection guide](https://github.com/cstksniper/hippo-mcp/blob/main/docs/SELECTION.md#5-other-memory-approaches-boundary-comparison)
 — it contains no scores or rankings.
 
 ---
@@ -350,32 +353,32 @@ The default profile exposes only 12 high-frequency tools; hidden tools remain av
 
 | Command | Purpose |
 |---|---|
-| `hippocampus-mcp doctor` | Health check for the installation and libraries |
-| `hippocampus-mcp tree` | Read-only library tree: markdown overview, or a single-file HTML viewer with `--html --out`; run inside a bound workspace it locates the library automatically |
-| `hippocampus-mcp models` / `--fetch` / `--prune` | Inspect, download, and reclaim embedding-model caches |
+| `hippo-mcp doctor` | Health check for the installation and libraries |
+| `hippo-mcp tree` | Read-only library tree: markdown overview, or a single-file HTML viewer with `--html --out`; run inside a bound workspace it locates the library automatically |
+| `hippo-mcp models` / `--fetch` / `--prune` | Inspect, download, and reclaim embedding-model caches |
 | `python scripts/reembed.py --all` | Backfill vectors after switching the embedding model |
 | `python scripts/import_md.py --dir <md dir> --project <name>` | Bulk-import Markdown documentation into a library |
 
-See [`docs/INTEGRATION.md`](https://github.com/cstksniper/hippocampus-mcp/blob/main/docs/INTEGRATION.md)
+See [`docs/INTEGRATION.md`](https://github.com/cstksniper/hippo-mcp/blob/main/docs/INTEGRATION.md)
 section 10 for model selection rules and the full switching procedure.
 
 See the dedicated guides for deeper evaluation and operation:
 
 | Document | Contents |
 |---|---|
-| [`docs/SELECTION.md`](https://github.com/cstksniper/hippocampus-mcp/blob/main/docs/SELECTION.md) | Fit, non-goals, and verification checklist |
-| [`docs/INTEGRATION.md`](https://github.com/cstksniper/hippocampus-mcp/blob/main/docs/INTEGRATION.md) | Host setup, model selection, lifecycle, compaction recovery, and fallback |
-| [`docs/PRIVACY.md`](https://github.com/cstksniper/hippocampus-mcp/blob/main/docs/PRIVACY.md) | Storage, network, user scope, and deletion |
-| [`docs/BENCHMARKS.md`](https://github.com/cstksniper/hippocampus-mcp/blob/main/docs/BENCHMARKS.md) | Current measurement conditions and limits |
+| [`docs/SELECTION.md`](https://github.com/cstksniper/hippo-mcp/blob/main/docs/SELECTION.md) | Fit, non-goals, and verification checklist |
+| [`docs/INTEGRATION.md`](https://github.com/cstksniper/hippo-mcp/blob/main/docs/INTEGRATION.md) | Host setup, model selection, lifecycle, compaction recovery, and fallback |
+| [`docs/PRIVACY.md`](https://github.com/cstksniper/hippo-mcp/blob/main/docs/PRIVACY.md) | Storage, network, user scope, and deletion |
+| [`docs/BENCHMARKS.md`](https://github.com/cstksniper/hippo-mcp/blob/main/docs/BENCHMARKS.md) | Current measurement conditions and limits |
 
 ## Contributing
 
 Issues and PRs are welcome. Read section 8 of
-[`docs/ARCHITECTURE.md`](https://github.com/cstksniper/hippocampus-mcp/blob/main/docs/ARCHITECTURE.md)
+[`docs/ARCHITECTURE.md`](https://github.com/cstksniper/hippo-mcp/blob/main/docs/ARCHITECTURE.md)
 before changing retrieval; each engineering constraint corresponds to a real failure.
 
-See [`CONTRIBUTING.md`](https://github.com/cstksniper/hippocampus-mcp/blob/main/CONTRIBUTING.md)
-and [`CODE_OF_CONDUCT.md`](https://github.com/cstksniper/hippocampus-mcp/blob/main/CODE_OF_CONDUCT.md).
+See [`CONTRIBUTING.md`](https://github.com/cstksniper/hippo-mcp/blob/main/CONTRIBUTING.md)
+and [`CODE_OF_CONDUCT.md`](https://github.com/cstksniper/hippo-mcp/blob/main/CODE_OF_CONDUCT.md).
 
 ## Contact
 
@@ -386,4 +389,4 @@ Email is for security reports, private data, or collaboration that does not belo
 
 ## License
 
-MIT — see [`LICENSE`](https://github.com/cstksniper/hippocampus-mcp/blob/main/LICENSE).
+MIT — see [`LICENSE`](https://github.com/cstksniper/hippo-mcp/blob/main/LICENSE).

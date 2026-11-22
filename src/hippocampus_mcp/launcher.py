@@ -209,7 +209,7 @@ def warn_daemon_stale(info: dict[str, Any]) -> list[str]:
 
     Never blocks reuse: refusing to connect on a cwd/config difference would
     break the multi-host, single-daemon topology.  The operator decides via
-    ``hippocampus-mcp restart``.
+    ``hippo-mcp restart``.
     """
     saved = info.get("identity")
     if not isinstance(saved, dict) or not saved:
@@ -224,7 +224,7 @@ def warn_daemon_stale(info: dict[str, Any]) -> list[str]:
         return diffs
     _STALE_WARNED.add(tag)
     print(f"[launcher] daemon pid={info.get('pid')} is stale ({', '.join(diffs)}); "
-          f"it still serves the previous code/config. Run `hippocampus-mcp restart` "
+          f"it still serves the previous code/config. Run `hippo-mcp restart` "
           f"to load the current one.", file=sys.stderr, flush=True)
     return diffs
 

@@ -50,7 +50,7 @@ __all__ = [
 #: Rolling release tag holding the bundles (see .github/workflows/model-bundles.yml).
 BUNDLE_RELEASE_TAG = "model-bundles"
 #: Public repo that publishes the release.
-BUNDLE_REPO = "cstksniper/hippocampus-mcp"
+BUNDLE_REPO = "cstksniper/hippo-mcp"
 #: api.github.com asset route: resolves to the objects CDN without ever
 #: touching ``github.com:443`` — on some mainland lines github.com is blocked
 #: while api.github.com + the objects CDN pass (hit 2026-11-22). This route
@@ -390,7 +390,7 @@ def available_bundles() -> dict[str, str]:
 
 
 def _main_cli(argv: list[str]) -> int:  # pragma: no cover - exercised via cli.py
-    print("use: hippocampus-mcp models --fetch [MODEL]", file=sys.stderr)
+    print("use: hippo-mcp models --fetch [MODEL]", file=sys.stderr)
     return 2
 
 

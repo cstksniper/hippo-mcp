@@ -2,7 +2,7 @@
 """CLI entry and wiring self-check: console-script binding / subcommand dispatch / doctor verdicts.
 
 The background is a real onboarding incident: the old installed ``hippocampus-mcp.exe``
-entry point **silently swallowed** subcommands (``doctor`` / ``setup`` became "start the
+(pre-rename dist name; the entry point is now ``hippo-mcp.exe``) **silently swallowed** subcommands (``doctor`` / ``setup`` became "start the
 server and exit 0"), so nobody ever got an error about "the config was actually wrong" —
 the user only saw ``mcp__hippocampus__*`` tools missing in the host, and an unloaded MCP
 server is physically unable to speak for itself. This suite guards that chain's **discoverability**.
@@ -98,7 +98,7 @@ def _scripts_of(text: str) -> dict:
 
 def _binds_cli(text: str) -> bool:
     """Whether the entry binds the CLI dispatcher (asserting the bound value itself is the caller's job)."""
-    return _scripts_of(text).get("hippocampus-mcp") == "hippocampus_mcp.cli:main"
+    return _scripts_of(text).get("hippo-mcp") == "hippocampus_mcp.cli:main"
 
 
 def test_a_entry_binding():
@@ -106,7 +106,7 @@ def test_a_entry_binding():
         text = f.read()
     scripts = _scripts_of(text)
     check("A1 console-script binds cli:main",
-          scripts.get("hippocampus-mcp") == "hippocampus_mcp.cli:main",
+          scripts.get("hippo-mcp") == "hippocampus_mcp.cli:main",
           str(scripts))
     check("A2 no entry points at the server module",
           not any("hippocampus_mcp.server" in str(v) for v in scripts.values()),
@@ -133,7 +133,7 @@ def test_b_dispatch():
         rc, out, _err = run_cli(["doctor"])
         check("B1 doctor exit code 0", rc == 0, str(rc))
         check("B2 doctor prints its report",
-              "hippocampus-mcp doctor" in out and "[ OK ]" in out
+              "hippo-mcp doctor" in out and "[ OK ]" in out
               and "Libraries configured by host" in out, out[:200])
         check("B3 doctor does not start the server (subcommand not swallowed)", not calls, str(calls))
 

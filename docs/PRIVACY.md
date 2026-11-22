@@ -56,7 +56,7 @@ Network access is mainly for downloading the selected embedding model through
 ` sentence-transformers` / Hugging Face. You can prefetch it with:
 
 ```bash
-hippocampus-mcp models --fetch
+hippo-mcp models --fetch
 ```
 
 Evaluation can optionally use an LLM-as-judge through `JUDGE_BASE_URL`, `JUDGE_API_KEY`, and

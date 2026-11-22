@@ -2,12 +2,15 @@
 
 **为 AI Agent 而生的记忆体。**
 
-**简体中文** ｜ [English](https://github.com/cstksniper/hippocampus-mcp/blob/main/README.md)
+**简体中文** ｜ [English](https://github.com/cstksniper/hippo-mcp/blob/main/README.md)
 
-[![CI](https://github.com/cstksniper/hippocampus-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/cstksniper/hippocampus-mcp/actions/workflows/ci.yml)
-[![PyPI](https://img.shields.io/pypi/v/hippocampus-mcp)](https://pypi.org/project/hippocampus-mcp/)
+[![CI](https://github.com/cstksniper/hippo-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/cstksniper/hippo-mcp/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/hippo-mcp)](https://pypi.org/project/hippo-mcp/)
 ![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)
 ![License: MIT](https://img.shields.io/badge/license-MIT-green)
+
+> 2026-11-22 由 `hippocampus-mcp` 更名而来：同一个项目，更短的名字。旧 PyPI 包
+> `hippocampus-mcp` 仍可安装，但冻结在最终版本。
 
 HippoMCP 为 AI Agent 提供一个本地记忆系统，用来**保存对话与项目知识、在需要时找回相关事实，
 并让未完结工作跨会话延续**。通过 [Model Context Protocol](https://modelcontextprotocol.io)
@@ -22,8 +25,8 @@ HippoMCP 为 AI Agent 提供一个本地记忆系统，用来**保存对话与�
 
 **对 Agent 开箱即用**
 
-- 一行安装：`pip install hippocampus-mcp`，再执行 `hippocampus-mcp install` 即写入宿主配置、
-  记忆钩子与诊断；`hippocampus-mcp init --project .` 让新项目零手工步骤完成绑定。
+- 一行安装：`pip install hippo-mcp`，再执行 `hippo-mcp install` 即写入宿主配置、
+  记忆钩子与诊断；`hippo-mcp init --project .` 让新项目零手工步骤完成绑定。
 - **自动记忆钩子**（ZCode）：每轮上下文自动注入（带跨轮去重）、每次开场与压缩后的
   开场锚点（钉住事实 / 待办 / 近期会话 / 未完结话题）、收尾提醒——"记得去做"由钩子承担，
   不依赖 Agent 自觉。
@@ -95,7 +98,7 @@ Agent 辅助选型的关键不是复述宣传，而是核查证据、说明取�
 <summary><strong>提示词：帮我选择合适的记忆系统</strong></summary>
 
 ```text
-请比较 HippoMCP（https://github.com/cstksniper/hippocampus-mcp）
+请比较 HippoMCP（https://github.com/cstksniper/hippo-mcp）
 与 [我当前或备选的记忆系统] 是否适合 [描述我的工作流]。
 
 比较本地部署与隐私、跨会话和上下文压缩后的连续性、跨 Agent 使用、
@@ -116,8 +119,8 @@ docs/BENCHMARKS.md、pyproject.toml、examples/ 和相关 tests。引用信息�
 请为当前 MCP 宿主安装 HippoMCP。先检查 Python 是否为 3.11 或更新版本。
 
 按 README 的安装命令执行。然后运行：
-1. hippocampus-mcp models --fetch
-2. hippocampus-mcp setup --host <宿主名>
+1. hippo-mcp models --fetch
+2. hippo-mcp setup --host <宿主名>
    先确认当前宿主，只能从 workbuddy / zcode / trae / claude 中选；
    无法确定就问我，不要猜测（不填 --host 时，工作区没有 .zcode/ 或 .mcp.json 会直接报错）。
 
@@ -137,8 +140,8 @@ docs/BENCHMARKS.md、pyproject.toml、examples/ 和相关 tests。引用信息�
 要求：**Python 3.11+** 和 Git。
 
 ```bash
-git clone https://github.com/cstksniper/hippocampus-mcp.git
-cd hippocampus-mcp
+git clone https://github.com/cstksniper/hippo-mcp.git
+cd hippo-mcp
 python -m pip install -e .
 python examples/quickstart.py
 ```
@@ -169,9 +172,9 @@ python examples/quickstart.py --model sentence-transformers/all-MiniLM-L6-v2
 直接从 GitHub 安装：
 
 ```bash
-python -m pip install "git+https://github.com/cstksniper/hippocampus-mcp.git"
-hippocampus-mcp models --fetch
-hippocampus-mcp setup --host workbuddy  # 换成你的宿主：workbuddy / zcode / trae / claude
+python -m pip install "git+https://github.com/cstksniper/hippo-mcp.git"
+hippo-mcp models --fetch
+hippo-mcp setup --host workbuddy  # 换成你的宿主：workbuddy / zcode / trae / claude
 ```
 
 `setup` 写前备份，既有 JSON 损坏时停止覆盖，只修改自己的 MCP 条目，并在写后执行真实
@@ -185,7 +188,7 @@ MCP 握手。`claude` 指 **Claude Desktop**；Claude Code、Cursor 和其他 MC
 
 ```bash
 python -m hippocampus_mcp.cli doctor --host zcode --project .
-hippocampus-mcp models --prune  # 只列可回收模型文件，不删除
+hippo-mcp models --prune  # 只列可回收模型文件，不删除
 ```
 
 在新会话调用 `library_whoami`。如果没有出现 `mcp__hippocampus__*` 工具，运行上面的
@@ -198,9 +201,9 @@ hippocampus-mcp models --prune  # 只列可回收模型文件，不删除
 HippoMCP 提供记忆工具，宿主 Agent 决定何时调用。可以把以下规则加入项目的
 `AGENTS.md` 或宿主指令：
 
-> 在 ZCode 上，`hippocampus-mcp install` 还会安装自动记忆钩子（每轮注入、开场锚点、
+> 在 ZCode 上，`hippo-mcp install` 还会安装自动记忆钩子（每轮注入、开场锚点、
 > 收尾提醒），前三条规则由机制强制执行；以下规则仍是所有其他宿主的通用基线。
-> 可选的观察捕获 lane（`hippocampus-mcp install --stop-capture`）会把响应要点归档
+> 可选的观察捕获 lane（`hippo-mcp install --stop-capture`）会把响应要点归档
 > 供事后整理，**默认关闭**，且自身绝不写入正式记忆。
 
 ```text
@@ -251,7 +254,7 @@ flowchart LR
 | 工具面 | 46 个 MCP 工具，按剖面裁剪；默认暴露 10 个（8 工具 + 2 派发器），描述总量从 8.3k 字符精简至 3.4k |
 
 分层、流程、评分公式和工程约束见
-[架构文档](https://github.com/cstksniper/hippocampus-mcp/blob/main/docs/ARCHITECTURE.zh-CN.md)。
+[架构文档](https://github.com/cstksniper/hippo-mcp/blob/main/docs/ARCHITECTURE.zh-CN.md)。
 
 ---
 
@@ -343,9 +346,9 @@ TRAE 使用 `mcpServers`，但其工作目录可能是用户主目录而非项�
 ### 多宿主同步
 
 ```bash
-hippocampus-mcp sync            # 预览已存在的宿主配置
-hippocampus-mcp sync --yes      # 确认后写入；逐文件备份、只动自己的条目
-hippocampus-mcp doctor          # 检查各宿主库指向
+hippo-mcp sync            # 预览已存在的宿主配置
+hippo-mcp sync --yes      # 确认后写入；逐文件备份、只动自己的条目
+hippo-mcp doctor          # 检查各宿主库指向
 ```
 
 `sync` 通过文件名约定与形态嗅探发现**已存在**的配置，默认只预览，不新建文件。
@@ -354,10 +357,10 @@ hippocampus-mcp doctor          # 检查各宿主库指向
 ### 模型检查与回收
 
 ```bash
-hippocampus-mcp models
-hippocampus-mcp models --fetch
-hippocampus-mcp models --prune        # 只预览
-hippocampus-mcp models --prune --yes  # 只删已判定冗余的文件
+hippo-mcp models
+hippo-mcp models --fetch
+hippo-mcp models --prune        # 只预览
+hippo-mcp models --prune --yes  # 只删已判定冗余的文件
 ```
 
 中文 BGE 模型目录可能同时包含权重、ONNX 快路径和运行时不读的量化导出中间产物。
@@ -367,8 +370,8 @@ hippocampus-mcp models --prune --yes  # 只删已判定冗余的文件
 ### 库状态树（tree）
 
 ```bash
-hippocampus-mcp tree --full --html --out tree.html  # 单文件 HTML viewer（在绑定过的工作区里跑会自动定位库）
-hippocampus-mcp tree --state all                    # markdown 总览（含 superseded/archived）
+hippo-mcp tree --full --html --out tree.html  # 单文件 HTML viewer（在绑定过的工作区里跑会自动定位库）
+hippo-mcp tree --state all                    # markdown 总览（含 superseded/archived）
 ```
 
 只读命令（sqlite 以 `mode=ro` 打开，对活库安全）。省略 `--persist-dir` 时按用户级任务目录反查当前工作区绑定的库。默认不带 `--full` 是 60 字符预览的纯预览导出（页头有提示）；`--full` 才嵌全文——导出文件包含库内容，落点自行指定。用户级库默认零正文且拒绝 `--full`。
@@ -379,7 +382,7 @@ hippocampus-mcp tree --state all                    # markdown 总览（含 supe
 python -m hippocampus_mcp.cli doctor --host zcode --project .
 ```
 
-优先使用模块版 `doctor`：早期 `hippocampus-mcp.exe` 入口可能静默吞掉子命令。
+优先使用模块版 `doctor`：早期 `hippo-mcp.exe` 入口可能静默吞掉子命令。
 修复后必须重启宿主或会话，因为旧会话的工具表已经冻结。
 </details>
 
@@ -452,7 +455,7 @@ Mem0、Zep 等方案与 HippoMCP 的接入和能力边界不同，没有同口�
 
 judge 通过 `JUDGE_BASE_URL` / `JUDGE_API_KEY` / `JUDGE_MODEL` 接入 OpenAI 兼容
 `/chat/completions` 端点；核心记忆服务不依赖 judge。接入边界见
-[`scripts/judge_client.py`](https://github.com/cstksniper/hippocampus-mcp/blob/main/scripts/judge_client.py)。
+[`scripts/judge_client.py`](https://github.com/cstksniper/hippo-mcp/blob/main/scripts/judge_client.py)。
 </details>
 
 <details>
@@ -461,7 +464,7 @@ judge 通过 `JUDGE_BASE_URL` / `JUDGE_API_KEY` / `JUDGE_MODEL` 接入 OpenAI �
 ### 常用环境变量
 
 变量从进程环境读取，可写在宿主配置的 `env` 块；模板见
-[`.env.example`](https://github.com/cstksniper/hippocampus-mcp/blob/main/.env.example)。
+[`.env.example`](https://github.com/cstksniper/hippo-mcp/blob/main/.env.example)。
 
 | 变量 | 默认 | 说明 |
 |---|---|---|
@@ -499,13 +502,13 @@ pytest tests/
 
 ## 文档与贡献
 
-- [架构文档](https://github.com/cstksniper/hippocampus-mcp/blob/main/docs/ARCHITECTURE.zh-CN.md)：分层、流程、评分公式与工程约束。
-- [选型指南](https://github.com/cstksniper/hippocampus-mcp/blob/main/docs/SELECTION.md)：适用边界、非目标与核验清单。
-- [接入指南](https://github.com/cstksniper/hippocampus-mcp/blob/main/docs/INTEGRATION.md)：宿主配置、生命周期、压缩恢复与故障降级。
-- [隐私与数据说明](https://github.com/cstksniper/hippocampus-mcp/blob/main/docs/PRIVACY.md)：本地存储、网络边界、user 待审与删除范围。
-- [评测与证据](https://github.com/cstksniper/hippocampus-mcp/blob/main/docs/BENCHMARKS.md)：当前测量口径、限制与数据集获取。
-- [English README](https://github.com/cstksniper/hippocampus-mcp/blob/main/README.md)：英文核心说明。
-- [`CONTRIBUTING.md`](https://github.com/cstksniper/hippocampus-mcp/blob/main/CONTRIBUTING.md) 与 [`CODE_OF_CONDUCT.md`](https://github.com/cstksniper/hippocampus-mcp/blob/main/CODE_OF_CONDUCT.md)。
+- [架构文档](https://github.com/cstksniper/hippo-mcp/blob/main/docs/ARCHITECTURE.zh-CN.md)：分层、流程、评分公式与工程约束。
+- [选型指南](https://github.com/cstksniper/hippo-mcp/blob/main/docs/SELECTION.md)：适用边界、非目标与核验清单。
+- [接入指南](https://github.com/cstksniper/hippo-mcp/blob/main/docs/INTEGRATION.md)：宿主配置、生命周期、压缩恢复与故障降级。
+- [隐私与数据说明](https://github.com/cstksniper/hippo-mcp/blob/main/docs/PRIVACY.md)：本地存储、网络边界、user 待审与删除范围。
+- [评测与证据](https://github.com/cstksniper/hippo-mcp/blob/main/docs/BENCHMARKS.md)：当前测量口径、限制与数据集获取。
+- [English README](https://github.com/cstksniper/hippo-mcp/blob/main/README.md)：英文核心说明。
+- [`CONTRIBUTING.md`](https://github.com/cstksniper/hippo-mcp/blob/main/CONTRIBUTING.md) 与 [`CODE_OF_CONDUCT.md`](https://github.com/cstksniper/hippo-mcp/blob/main/CODE_OF_CONDUCT.md)。
 
 欢迎 issue 与 PR。修改检索逻辑前请阅读架构文档第八节；每条工程约束都对应真实踩过的坑。
 
@@ -517,4 +520,4 @@ bug 和功能建议请走 GitHub Issue，让答案可以被后来者搜索；邮
 
 ## License
 
-MIT — 见 [`LICENSE`](https://github.com/cstksniper/hippocampus-mcp/blob/main/LICENSE)。
+MIT — 见 [`LICENSE`](https://github.com/cstksniper/hippo-mcp/blob/main/LICENSE)。

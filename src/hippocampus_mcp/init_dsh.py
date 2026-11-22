@@ -200,7 +200,7 @@ def run_init_dsh(workspace: str, *, dsh_home: str = "", profile: str = "web",
     if backend == "hash":
         report["next"] = (report["next"] + " IMPORTANT: the embedding model is "
                           "missing on this machine (backend would degrade to "
-                          "hash). Run `hippocampus-mcp models --fetch` now "
+                          "hash). Run `hippo-mcp models --fetch` now "
                           "(bundle download; no torch needed) before the "
                           "first session.")
     return report

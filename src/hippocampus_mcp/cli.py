@@ -1,16 +1,16 @@
-"""``hippocampus-mcp`` command line entry point (setup / sync / doctor /
+"""``hippo-mcp`` command line entry point (setup / sync / doctor /
 models / serve).
 
 Five subcommands::
 
-    hippocampus-mcp serve     start the MCP service (via the launcher by
+    hippo-mcp serve     start the MCP service (via the launcher by
                               default, shared daemon)
-    hippocampus-mcp setup     generate / merge MCP configuration for one host
-    hippocampus-mcp sync      discover all host configs and sync the same
+    hippo-mcp setup     generate / merge MCP configuration for one host
+    hippo-mcp sync      discover all host configs and sync the same
                               entry (preview by default)
-    hippocampus-mcp doctor    health check: paths / library / model /
+    hippo-mcp doctor    health check: paths / library / model /
                               dependencies ready
-    hippocampus-mcp models    local model cache: usage detail / who uses it /
+    hippo-mcp models    local model cache: usage detail / who uses it /
                               reclaim redundancy
 
 **Why setup exists**: the MCP protocol only specifies transport
@@ -514,13 +514,13 @@ def cmd_setup(args: argparse.Namespace) -> int:
         step += 1
         print(f"  {step}) Prefetch the model first ({model} is not local; a failed "
               f"first-start download can leave the host with no tools):")
-        print(f"     hippocampus-mcp models --fetch {model}")
+        print(f"     hippo-mcp models --fetch {model}")
     step += 1
     print(f"  {step}) Restart that host (MCP config is read at startup)")
     step += 1
     print(f"  {step}) In a new session, call library_whoami first to confirm the active library")
     step += 1
-    print(f"  {step}) If in doubt, run hippocampus-mcp doctor")
+    print(f"  {step}) If in doubt, run hippo-mcp doctor")
     return 0
 
 
@@ -846,7 +846,7 @@ def _system_disk_migration_hint(lib_path: Path, size_bytes: int,
 def cmd_doctor(args: argparse.Namespace) -> int:
     import importlib.util
 
-    print("hippocampus-mcp doctor")
+    print("hippo-mcp doctor")
     print("-" * 60)
 
     if getattr(args, "host", None):
@@ -923,7 +923,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         backend = f"unknown ({type(exc).__name__})"
     degraded = backend == "hash"
     print(f"{_mark(True, warn=degraded)} Model     {model}  [backend: {backend}]"
-          f"{'' if not degraded else ' (no local artifacts and no [torch] extra -- retrieval would degrade to hash; run `hippocampus-mcp models --fetch`)'}")
+          f"{'' if not degraded else ' (no local artifacts and no [torch] extra -- retrieval would degrade to hash; run `hippo-mcp models --fetch`)'}")
     if not model_env:
         print("       ⚠ HIPPOCAMPUS_EMB_MODEL is not set; this checks the default model "
               "(actual model is determined by host config env)")
@@ -1012,7 +1012,7 @@ def _prefetch_model(want: str, cache: str) -> int:
         print(f"\n[Failed] no published bundle for {want}")
         print(f"Bundles available on the '{model_fetch.BUNDLE_RELEASE_TAG}' release:")
         for name, upstream in known.items():
-            print(f"  - hippocampus-mcp models --fetch {upstream}")
+            print(f"  - hippo-mcp models --fetch {upstream}")
         print("Torch-based users: install the [torch] extra instead -- first start")
         print("then downloads the model via sentence-transformers (HF mirror aware).")
         return 1
@@ -1031,7 +1031,7 @@ def _prefetch_model(want: str, cache: str) -> int:
         print(f"  3) Manual placement: unpack the bundle zip under {cache}{os.sep}{short}{os.sep} "
               f"(onnx/ + tokenizer.json)")
         print("  4) English baseline instead (much smaller): "
-              "`hippocampus-mcp models --fetch sentence-transformers/all-MiniLM-L6-v2`")
+              "`hippo-mcp models --fetch sentence-transformers/all-MiniLM-L6-v2`")
         return 1
     if report.get("status") == "already_local":
         print(f"[Ready] {want} already local: {report['dir']}")
@@ -1464,6 +1464,18 @@ def cmd_tree(args: argparse.Namespace) -> int:
               "so an explicit --out path is required")
         return 2
 
+    # P6 diary view: --tag KEY[=VALUE] (repeatable, AND semantics); a bare
+    # key filters on tag presence only.
+    tag_filter = None
+    for raw in (args.tag or []):
+        if "=" in raw:
+            k, v = raw.split("=", 1)
+            tag_filter = (tag_filter or {})
+            tag_filter[k.strip()] = v.strip()
+        else:
+            tag_filter = (tag_filter or {})
+            tag_filter[raw.strip()] = None
+
     try:
         snapshot = snapshot_library(persist)
         states = ("active",) if args.state == "active" else (
@@ -1473,6 +1485,7 @@ def cmd_tree(args: argparse.Namespace) -> int:
             include_states=states,
             full=bool(args.full),
             limit=args.limit,
+            tag_filter=tag_filter,
         )
         if args.html:
             html = render_html(agg, title=f"Library tree — {os.path.basename(persist)}")
@@ -1598,7 +1611,7 @@ def cmd_restart(args) -> int:
 # --------------------------------------------------------------------------
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
-        prog="hippocampus-mcp",
+        prog="hippo-mcp",
         description="HippoMCP memory service: serve, install into hosts, and diagnose.")
     sub = p.add_subparsers(dest="cmd")
 
@@ -1793,6 +1806,10 @@ def build_parser() -> argparse.ArgumentParser:
     tr.add_argument("--state", choices=("active", "all"), default="active",
                     help="Include only active entries, or all states "
                          "(default: active)")
+    tr.add_argument("--tag", action="append", default=None, metavar="KEY[=VALUE]",
+                    help="Only include entries whose tags match (repeatable, "
+                         "AND semantics). Bare KEY = key present; KEY=VALUE = "
+                         "case-insensitive value match. Example: --tag diary")
     tr.add_argument("--full", action="store_true",
                     help="Include whole content instead of the 60-char "
                          "preview (refused on the user library)")

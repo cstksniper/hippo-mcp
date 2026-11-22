@@ -550,6 +550,13 @@ def extractor_from_config(cfg: dict[str, Any], source: str = "config") -> TagExt
     )
 
 
+# P5 reserved system keys (2026-11-22): ``vis`` is the visibility tier
+# (public/master) of the virtual-person line. It must stay filterable
+# regardless of the library's tag schema, or the public-facing surface
+# could never query its own subset on a schema-protected library.
+RESERVED_FILTER_KEYS: tuple[str, ...] = ("vis",)
+
+
 def validate_filter_keys(tags: dict[str, Any] | None,
                          extractor: TagExtractor,
                          ) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
@@ -594,7 +601,8 @@ def validate_filter_keys(tags: dict[str, Any] | None,
     allowed = extractor.filter_keys
     if not allowed:                      # No whitelist declared ⇒ no validation (bit-for-bit unchanged)
         return tags, None
-    unknown = [str(k) for k in tags if str(k) not in allowed]
+    unknown = [str(k) for k in tags
+               if str(k) not in allowed and str(k) not in RESERVED_FILTER_KEYS]
     if not unknown:
         return tags, None
     info = {

@@ -62,6 +62,7 @@ from ..store.memory import MemoryState
 from ..domain import metacog as _metacog
 from ..domain.context_slots import BLOCK_PLACEHOLDERS
 from ..domain import prospective as _prospective
+from ..domain.sensitive import match_sensitive
 from ..domain.scope_recall import (SCOPE_ALL, SCOPE_PROJECT, SCOPE_USER,
                                    merge_multi_library, merge_scope_hits,
                                    parse_library_spec, validate_scope)
@@ -406,6 +407,14 @@ class RecallService(BaseService):
         parsed_tags, key_info = check_tag_keys(brain, parsed_tags)
         if key_info and key_info.get("error"):
             return key_info
+        # P5 visibility read gate (2026-11-22): a vis=public read is the
+        # public-facing surface — sensitive-labeled records never leave the
+        # flow, and a live credential scan runs on the final entries (the
+        # second half of the double gate against historical unlabeled data).
+        public_read = isinstance(parsed_tags, dict) \
+            and str(parsed_tags.get("vis", "")) == "public"
+        if public_read:
+            exclude_sensitive = True
         allow_ids = brain._ids_matching_tags(parsed_tags)
         if allow_ids is not None and not allow_ids:
             # The filter matched nothing — matched=0 lets the caller see
@@ -569,6 +578,20 @@ class RecallService(BaseService):
                     continue
                 kept.append(d)
             memories = kept
+        if public_read:
+            # Second half of the P5 double gate: a live credential scan on
+            # the final entries — records ingested before labeling existed
+            # must not leak through the public surface either.
+            live_hits = 0
+            kept_public: list[dict[str, Any]] = []
+            for d in memories:
+                if match_sensitive(str(d.get("content") or "")):
+                    live_hits += 1
+                    continue
+                kept_public.append(d)
+            if live_hits:
+                memories = kept_public
+                filtered_sensitive += live_hits
         # Stamp the 「最后一次被召回」 (last recalled) timestamp: the shared
         # layer is deliberately side-effect free, so bookkeeping stays inside
         # the caller's shell (same discipline as brain.recall, preventing

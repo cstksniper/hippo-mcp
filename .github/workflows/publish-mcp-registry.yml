@@ -43,7 +43,7 @@ jobs:
           set -euo pipefail
           VERSION="${GITHUB_REF#refs/tags/v}"
           for i in $(seq 1 30); do
-            if curl -fsS "https://pypi.org/pypi/hippocampus-mcp/json" | grep -q "\"version\":\"$VERSION\""; then
+            if curl -fsS "https://pypi.org/pypi/hippo-mcp/json" | grep -q "\"version\":\"$VERSION\""; then
               echo "PyPI $VERSION visible"
               exit 0
             fi

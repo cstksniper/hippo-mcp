@@ -20,8 +20,8 @@ The core service does not require an LLM API key. A judge key is only needed for
 ## 2. Install from source
 
 ```bash
-git clone https://github.com/cstksniper/hippocampus-mcp.git
-cd hippocampus-mcp
+git clone https://github.com/cstksniper/hippo-mcp.git
+cd hippo-mcp
 python -m pip install -e .
 python examples/quickstart.py
 ```
@@ -40,18 +40,18 @@ python examples/quickstart.py --model sentence-transformers/all-MiniLM-L6-v2
 Until a PyPI release is available, install directly from GitHub:
 
 ```bash
-python -m pip install "git+https://github.com/cstksniper/hippocampus-mcp.git"
-hippocampus-mcp models --fetch
-hippocampus-mcp setup
+python -m pip install "git+https://github.com/cstksniper/hippo-mcp.git"
+hippo-mcp models --fetch
+hippo-mcp setup
 ```
 
 If host auto-detection is wrong, pass it explicitly:
 
 ```bash
-hippocampus-mcp setup --host workbuddy
-hippocampus-mcp setup --host zcode
-hippocampus-mcp setup --host trae
-hippocampus-mcp setup --host claude
+hippo-mcp setup --host workbuddy
+hippo-mcp setup --host zcode
+hippo-mcp setup --host trae
+hippo-mcp setup --host claude
 ```
 
 `claude` refers to **Claude Desktop**. Claude Code, Cursor, and other MCP hosts require separate
@@ -91,7 +91,7 @@ After restart:
 
 ```bash
 python -m hippocampus_mcp.cli doctor --host <host> --project .
-hippocampus-mcp models --prune
+hippo-mcp models --prune
 ```
 
 In the new session:
@@ -193,11 +193,11 @@ never fail or block.
 Common commands:
 
 ```bash
-hippocampus-mcp doctor
+hippo-mcp doctor
 python -m hippocampus_mcp.cli doctor --host zcode --project .
-hippocampus-mcp models
-hippocampus-mcp models --fetch
-hippocampus-mcp models --prune
+hippo-mcp models
+hippo-mcp models --fetch
+hippo-mcp models --prune
 ```
 
 `models --prune` previews reclaimable model files. Add `--yes` only after reviewing the list.

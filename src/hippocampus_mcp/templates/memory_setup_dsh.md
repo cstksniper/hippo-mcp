@@ -15,9 +15,9 @@
 
 安装 = 让 harness 挂上 hippocampus 的 MCP 服务。按顺序执行：
 
-0. **确认 Python 包已装**（工具缺失多半是包没装）。跑 `hippocampus-mcp --help`：
-   能出帮助说明 → 跳到第 1 步；命令不存在 → `pip install hippocampus-mcp`。
-   （机器上连 Python 都没有时，改用 `uv tool install hippocampus-mcp`——uv 会
+0. **确认 Python 包已装**（工具缺失多半是包没装）。跑 `hippo-mcp --help`：
+   能出帮助说明 → 跳到第 1 步；命令不存在 → `pip install hippo-mcp`。
+   （机器上连 Python 都没有时，改用 `uv tool install hippo-mcp`——uv 会
    自动下载它自己管理的 Python，无需手动装。）装完重跑第一节自检。
 1. 找到 harness 的 profile 配置文件（DeepSeek Harness 默认在
    `<DSH_HOME>/profiles/<profile>/cordis.patch.yml`；`DSH_HOME` 环境变量或
@@ -46,7 +46,7 @@
              HIPPOCAMPUS_TOOL_PROFILE: 'common'
    ```
 
-3. **取回嵌入模型**（幂等，可重跑）：`hippocampus-mcp models --fetch`。
+3. **取回嵌入模型**（幂等，可重跑）：`hippo-mcp models --fetch`。
    中文系统约 226MB，英文系统约 90MB；已就位则秒回 `[Ready]`。
    **这步不可跳过**：模型缺失时服务能启动，但语义检索会静默降级为
    hash 词面匹配——你还能想起记过的条目，却想不起"相似"的事。

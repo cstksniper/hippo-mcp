@@ -4,7 +4,7 @@ name: Release to PyPI
 #
 # One-time setup on the PyPI side (needs the web UI):
 #   pypi.org -> project -> Manage -> Publishing -> Add GitHub Trusted Publisher:
-#     owner = cstksniper, repository = hippocampus-mcp,
+#     owner = cstksniper, repository = hippo-mcp,
 #     workflow = release.yml, environment = (leave blank)
 #
 # Trigger: push a tag. The version in pyproject.toml MUST be bumped first and

@@ -61,6 +61,7 @@ from ..domain import ingest_flow as _ingest_flow
 from ..domain import knowledge_batch as _knowledge_batch
 from ..domain import knowledge_map_view as _knowledge_map_view
 from ..domain import topic_material as _topic_material
+from ..domain import sensitive as _sensitive
 from ..domain import tag_update as _tag_update
 from ..domain import consolidate_flow as _consolidate_flow
 from ..domain import ingest_batch_flow as _batch_flow
@@ -2857,6 +2858,21 @@ class HippoBrain(_SessionMixin, _EntityLexiconMixin, _PureMixin):
             missing_keys=missing_keys, memory_ids=memory_ids,
         )
         matched = len(recs)
+        # P5 visibility gate (2026-11-22): promoting records to the public
+        # tier (``tags.vis = "public"``) is credential-gated — any
+        # credential-class hit in the affected batch fails the whole run
+        # closed (dry_run included), before the plan is ever built.
+        vis_hits = _sensitive.gate_vis_public(
+            new_tags, ((str(getattr(r, "id", "")),
+                        str(getattr(r, "content", "") or "")) for r in recs))
+        if vis_hits:
+            return {
+                "error": ("vis=public blocked: credential-class content in "
+                          "the affected batch (fail-closed; exclude those "
+                          "records from the selection or drop the tag)"),
+                "matched": matched,
+                "hits": vis_hits,
+            }
         capped = False
         if limit and limit > 0 and len(recs) > limit:
             recs = recs[:limit]
