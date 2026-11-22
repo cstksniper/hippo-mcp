@@ -39,6 +39,17 @@ HippoMCP 为 AI Agent 提供一个本地记忆系统，用来**保存对话与�
 
 ---
 
+## 给 AI 伙伴完整的一生
+
+**一条命，不被上下文压缩清零，也不按轮烧 token。** `hippo-mcp init --dsh <工作区>`
+给 DeepSeek Harness 里的 AI 伙伴一键备好记忆：绑定专属库、写入 MCP 接入条目、
+落下人格与记忆纪律，并留一份她自己能读的自装指南（写工作区外的配置会请求用户批准）。
+过去的对话可以一次性导入 L0 原始档案，重复导入不会产生副本；第一人称日记和默认私密的
+可见性分级让"只属于主人的部分"保持私密，公开需要明确授权并通过凭据闸门。
+记忆按需召回、工具面保持精简——拥有完整的一生，但不必每轮把一生重读一遍。
+
+---
+
 ## HippoMCP 的主要功能
 
 | 功能 | 解决的痛点 | 系统提供的具体能力 |
@@ -49,6 +60,7 @@ HippoMCP 为 AI Agent 提供一个本地记忆系统，用来**保存对话与�
 | **整理并维护记忆** | 记忆越来越多后，出现噪声、过期、专名难查和状态难核对 | 会话摘要、画像、主题与信息地图、实体档案、领域词库、别名候选、矛盾候选和源文件漂移审计 |
 | **安全地纠错与遗忘** | 错误事实持续影响后续回答；只删一条记录，摘要、画像和索引里仍可能保留副本 | `active` / `superseded` / `archived` 状态机、原文溯源、级联 `forget_memory`、默认预览的 `forget_by_query`，以及防复活墓碑 |
 | **隔离、共享并导出记忆** | 记忆被锁在某个 Agent 中、不同项目互相污染，或多个客户端并发覆盖 | 工作区项目库、受控 user 作用域、`library_whoami`、多宿主 MCP 访问、分层并发合并和记忆导出 |
+| **给虚拟伙伴连续的一生** | 每次新会话都像初次见面，重读全部旧对话又太贵 | 一键 DSH 接入、历史会话幂等导入 L0 原始档案、第一人称日记、默认私密可见性——召回始终按需 |
 
 **用户记忆跟随用户，项目记忆跟随项目，都不被锁死在某个 Agent 里。**
 共享的前提是多个 Agent 连接同一服务和相应记忆库，项目与 user 权限边界仍然有效。
@@ -123,6 +135,8 @@ docs/BENCHMARKS.md、pyproject.toml、examples/ 和相关 tests。引用信息�
 2. hippo-mcp setup --host <宿主名>
    先确认当前宿主，只能从 workbuddy / zcode / trae / claude 中选；
    无法确定就问我，不要猜测（不填 --host 时，工作区没有 .zcode/ 或 .mcp.json 会直接报错）。
+   DeepSeek Harness 不要用 setup --host：改用 hippo-mcp init --dsh <工作区>；
+   它会写工作区外的 harness 配置并触发用户审批，提出请求前请先向用户说明原因。
 
 保留其他 MCP 条目，修改配置前备份，不删除或覆盖无关文件。
 报告每条命令、实际修改的配置文件和 MCP 握手结果。
@@ -295,6 +309,17 @@ python scripts/run_all_tests.py              # 全量回归
 | TRAE | `%APPDATA%\TRAE SOLO CN\User\mcp.json` | `--host trae` |
 | Claude Desktop | `%APPDATA%\Claude\claude_desktop_config.json` | `--host claude` |
 
+DeepSeek Harness 不在 `setup --host` 的四家里，走独立路径：
+
+```bash
+hippo-mcp init --dsh <工作区路径>            # 建库绑定 + 写 MCP patch + 人格纪律 + 自装指南
+hippo-mcp import-dsh --workspace <工作区路径>  # 历史会话导入绑定库（幂等，需服务在跑）
+```
+
+`init --dsh` 幂等、无需 daemon；它会写工作区外的 `cordis.patch.yml`，harness 会请求用户审批。
+`import-dsh` 需要记忆服务已运行（伙伴的工具可用即服务在跑），重复执行跳过已导入部分。
+新会话先用 `library_whoami` 确认落到本工作区的库。
+
 生产入口为 `python -m hippocampus_mcp.launcher`：多宿主、多会话可共享单份 daemon 和嵌入模型。
 launcher 异常时回退直连；`HIPPOCAMPUS_LAUNCHER=0` 可显式关闭 launcher。
 
@@ -404,7 +429,7 @@ python -m hippocampus_mcp.cli doctor --host zcode --project .
 | 管理 | `reset_context`、`save_state`、`save_brain`、`load_state`、`retry_save` |
 | 多库 | `library_list`、`library_info`、`library_whoami`、`library_use`、`library_create` |
 
-默认 common 剖面注册高频 10 条加 `hippo_help` / `hippo_extra`，共 12 个可见工具，
+默认 common 剖面注册 8 条高频工具加 `hippo_help` / `hippo_extra`，共 10 个可见工具，
 约 4.7k token。隐藏工具可通过 `hippo_help` 查目录，再用
 `hippo_extra(action="名字", args='{...}')` 调用。`HIPPOCAMPUS_TOOL_PROFILE=full`
 注册全量 46 个，约 14.4k token；另有 core / writer / lexicon / entity / admin / map / minimal。

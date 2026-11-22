@@ -1327,6 +1327,29 @@ def cmd_init(args: argparse.Namespace) -> int:
             print(f"✗ init failed: {exc}", file=sys.stderr)
             return 1
         print(json.dumps(report, ensure_ascii=False, indent=2))
+        # D-3: optional immediate history import (--import-history). Keeps
+        # init itself zero-daemon; this branch runs ONLY when the flag is set
+        # and requires a live memory service (the daemon serves writes).
+        if getattr(args, "import_history", False):
+            history = report.get("history") or {}
+            logs = history.get("logs") or []
+            if not logs:
+                print("import-history: no past session logs found for this "
+                      "workspace — nothing to import.")
+                return 0
+            print(f"import-history: importing {len(logs)} session log(s)…")
+            try:
+                from .dsh_import import import_session_logs
+                summaries = import_session_logs(
+                    log_paths=logs, cwd=report["workspace"],
+                    hello_library=args.user_lib or "")
+                print(json.dumps(summaries, ensure_ascii=False, indent=2))
+                failed = [s for s in summaries if s.get("errors")]
+                if failed:
+                    return 1
+            except RuntimeError as exc:
+                print(f"✗ import-history failed: {exc}", file=sys.stderr)
+                return 1
         return 0
     from .init_project import run_init
     try:
@@ -1338,6 +1361,44 @@ def cmd_init(args: argparse.Namespace) -> int:
         return 1
     print(json.dumps(report, ensure_ascii=False, indent=2))
     return 0
+
+
+def cmd_import_dsh(args: argparse.Namespace) -> int:
+    """D-3: import DeepSeek Harness session logs for a workspace into its
+    bound memory library (design doc
+    ``DSH虚拟人记忆_设计书_20261121.md`` §8 / P3 productized).
+
+    Locates the workspace's logs via the official projectKey encoding, then
+    writes through the RUNNING shared daemon (C1-bound; per-message idem_key
+    + per-session ledger make replays no-ops). Zero-daemon installs must run
+    the service first — this command never touches library files directly
+    (dual-backend split lesson)."""
+    from .dsh_import import find_session_logs, import_session_logs
+    dsh_home = (os.path.expanduser(args.dsh_home) if args.dsh_home
+                else os.environ.get("DSH_HOME")
+                or os.path.join(os.path.expanduser("~"), ".dsh"))
+    workspace = os.path.abspath(os.path.expanduser(args.workspace))
+    logs = find_session_logs(dsh_home, workspace)
+    if not logs:
+        print(f"no session logs found for workspace {workspace} under "
+              f"{dsh_home}", file=sys.stderr)
+        return 1
+    print(f"found {len(logs)} session log(s) for {workspace}")
+    try:
+        summaries = import_session_logs(
+            log_paths=logs, cwd=workspace,
+            hello_library=os.path.expanduser(args.user_lib) if args.user_lib else "",
+            daemon_port=args.daemon_port or None,
+            importance=args.importance,
+            max_chars=args.max_chars,
+            timeout_s=args.timeout,
+            dry_run=args.dry_run)
+    except RuntimeError as exc:
+        print(f"✗ import failed: {exc}", file=sys.stderr)
+        return 1
+    print(json.dumps(summaries, ensure_ascii=False, indent=2))
+    failed = [s for s in summaries if s.get("errors")]
+    return 1 if failed and not args.dry_run else 0
 
 
 def cmd_bootstrap(args: argparse.Namespace) -> int:
@@ -1790,7 +1851,40 @@ def build_parser() -> argparse.ArgumentParser:
     ini.add_argument("--profile", default="web",
                      help="DSH profile name whose patch receives the MCP "
                           "entry (default: web)")
+    ini.add_argument("--import-history", action="store_true",
+                     help="After onboarding, immediately import this "
+                          "workspace's past session logs into the library "
+                          "(requires a running memory service; init itself "
+                          "stays read-only and reports what it found either "
+                          "way)")
     ini.set_defaults(func=cmd_init)
+
+    imp = sub.add_parser(
+        "import-dsh",
+        help="Import DeepSeek Harness session logs for a workspace into its "
+             "bound memory library (D-3; requires a running memory service)")
+    imp.add_argument("--workspace", required=True,
+                     help="DSH workspace root (its logs are located via the "
+                          "official projectKey encoding)")
+    imp.add_argument("--dsh-home", default="",
+                     help="Harness home override (default: DSH_HOME env, "
+                          "else ~/.dsh)")
+    imp.add_argument("--user-lib", default="",
+                     help="Declared library path for the HELLO handshake "
+                          "(default: ~/.hippocampus_mcp/user)")
+    imp.add_argument("--daemon-port", type=int, default=0,
+                     help="Connect to this daemon port directly (bypass the "
+                          "registry; useful when several daemon generations "
+                          "are registered)")
+    imp.add_argument("--importance", type=float, default=0.35,
+                     help="Importance for imported messages (default 0.35)")
+    imp.add_argument("--max-chars", type=int, default=8000,
+                     help="Per-message text cap (default 8000)")
+    imp.add_argument("--timeout", type=float, default=300.0,
+                     help="Daemon deadline in seconds (default 300)")
+    imp.add_argument("--dry-run", action="store_true",
+                     help="Extract and report without writing")
+    imp.set_defaults(func=cmd_import_dsh)
 
     tr = sub.add_parser(
         "tree",

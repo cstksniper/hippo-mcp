@@ -25,6 +25,7 @@ text files, the new library directory, and the user-level sidecar.
 """
 from __future__ import annotations
 
+import json
 import os
 import sys
 from pathlib import Path
@@ -33,7 +34,7 @@ from typing import Any
 from .init_project import run_init, write_agents_snippet
 from .library import normpath
 
-__all__ = ["run_init_dsh"]
+__all__ = ["run_init_dsh", "history_summary"]
 
 _TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
 _PATCH_ENTRY_ID = "mcp-hippocampus"
@@ -109,6 +110,28 @@ def _write_guide(workspace: str) -> str:
         return "unchanged"
     path.write_text(body, encoding="utf-8", newline="\n")
     return "replaced" if existed else "created"
+
+
+def history_summary(dsh_home: str, workspace: str) -> dict[str, Any]:
+    """Read-only discovery of the workspace's past session logs (D-3).
+
+    Reports how many historical session logs exist for this workspace and
+    the exact one-command import path — init itself stays zero-daemon and
+    read-only here; the import writes only once the memory service is up.
+    """
+    from .dsh_import import find_session_logs
+    logs = find_session_logs(dsh_home, workspace)
+    return {
+        "found_logs": len(logs),
+        "logs": logs,
+        "import_command": ("hippo-mcp import-dsh --workspace " +
+                           json_quote(workspace)),
+    }
+
+
+def json_quote(value: str) -> str:
+    """Shell-quoting helper that survives Windows backslash paths."""
+    return '"' + value + '"'
 
 
 def run_init_dsh(workspace: str, *, dsh_home: str = "", profile: str = "web",
@@ -203,4 +226,19 @@ def run_init_dsh(workspace: str, *, dsh_home: str = "", profile: str = "web",
                           "hash). Run `hippo-mcp models --fetch` now "
                           "(bundle download; no torch needed) before the "
                           "first session.")
+
+    # Step 7 (D-3): history discovery — does this workspace have PAST session
+    # logs worth importing? Read-only; the actual import is a separate
+    # command that needs the memory service running (zero-daemon init).
+    try:
+        report["history"] = history_summary(dsh_home, workspace)
+        if report["history"]["found_logs"]:
+            report["next"] = (report["next"] + " HISTORY: "
+                              + str(report["history"]["found_logs"])
+                              + " past session log(s) found for this workspace"
+                              + " — import them with `"
+                              + report["history"]["import_command"]
+                              + "` (requires the memory service running).")
+    except Exception as exc:                     # noqa: BLE001 - never fail onboarding
+        report["history"] = {"error": f"{type(exc).__name__}: {exc}"}
     return report

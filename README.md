@@ -48,6 +48,17 @@ BGE (768-dim); ingestion handles Chinese sentence segmentation with per-library 
 the lexical channel handles Chinese bigrams; chapter/volume/year tags become hard filters.
 Details below.
 
+### For a companion's whole life
+
+**A complete life — lean on tokens, easy on the mind.** `hippo-mcp init --dsh`
+binds a dedicated library, registers the MCP client in the DeepSeek Harness
+profile patch, and leaves a self-install guide the companion can follow
+itself — writing outside the workspace asks the user for approval. Past
+sessions can be imported once into the L0 archive; first-person diaries and
+the `vis` tag keep private things private, while public promotion is an
+explicit, credential-checked act. Recall stays on demand and the tool surface
+stays slim: a whole history, without rereading it every turn.
+
 ---
 
 ## What HippoMCP does
@@ -60,6 +71,7 @@ Details below.
 | **Organize and maintain memory** | A growing memory library becomes noisy, stale, or difficult to inspect | Session summaries, profiles, topic and information maps, entity profiles, domain lexicons, alias suggestions, contradiction candidates, and source-drift audits |
 | **Correct and forget safely** | Wrong facts keep influencing later answers, and deleting one record can leave copies in summaries, profiles, and indexes | `active` / `superseded` / `archived` states, source tracing, cascade-safe `forget_memory`, preview-first `forget_by_query`, and tombstones against resurrection |
 | **Scope, share, and export memory** | Memories become trapped inside one agent, leak between projects, or get overwritten by concurrent clients | Workspace-bound project libraries, controlled user scope, `library_whoami`, multi-host MCP access, layer-specific concurrent-save merging, and memory export |
+| **Give a companion a continuous life** | A virtual companion starts every session as a stranger, and replaying every past conversation is expensive | One-command DSH onboarding, idempotent import of past sessions into the L0 archive, first-person diaries, and private-by-default visibility — recall stays on demand |
 
 **User memory follows the user. Project memory follows the project. Neither is trapped
 inside a single agent.** Sharing requires agents to connect to the same service and library;
@@ -140,7 +152,10 @@ Use the installation command in the README. Then run:
 2. hippo-mcp setup --host <host name>
    Determine the host first and choose only from workbuddy / zcode / trae / claude;
    ask me if it is unclear, do not guess (omitting --host errors out when the
-   workspace has neither .zcode/ nor .mcp.json).
+   workspace has neither .zcode/ nor .mcp.json). For DeepSeek Harness, do NOT
+   use setup --host: run hippo-mcp init --dsh <workspace> instead (it writes
+   the MCP patch outside the workspace, so the harness asks the user to
+   approve — explain that before making the request).
 
 Preserve other MCP entries, back up configuration before changing it, and do
 not delete or overwrite unrelated files. Report each command, the configuration
@@ -346,14 +361,17 @@ correction-semantics differences, see
 
 The full service exposes 46 MCP tools across writing, reading, session lifecycle, correction,
 entities, topic layers, information maps, consolidation, administration, and multi-library use.
-The default profile exposes only 12 high-frequency tools; hidden tools remain available through
-`hippo_help` and `hippo_extra`. Set `HIPPOCAMPUS_TOOL_PROFILE=full` to expose the full surface.
+The default profile exposes 10 tools on the resident surface (8 frequent tools plus
+`hippo_help` and `hippo_extra`); hidden tools remain available through those two dispatchers.
+Set `HIPPOCAMPUS_TOOL_PROFILE=full` to expose the full surface.
 
 ### Maintenance commands
 
 | Command | Purpose |
 |---|---|
 | `hippo-mcp doctor` | Health check for the installation and libraries |
+| `hippo-mcp init --dsh <workspace>` | DeepSeek Harness companion onboarding: bind a library, write the MCP patch entry, persona/discipline block, and a self-install guide (idempotent; no daemon needed) |
+| `hippo-mcp import-dsh --workspace <path>` | Import a workspace's past DSH session logs into its bound library (idempotent; requires a running memory service) |
 | `hippo-mcp tree` | Read-only library tree: markdown overview, or a single-file HTML viewer with `--html --out`; run inside a bound workspace it locates the library automatically |
 | `hippo-mcp models` / `--fetch` / `--prune` | Inspect, download, and reclaim embedding-model caches |
 | `python scripts/reembed.py --all` | Backfill vectors after switching the embedding model |
