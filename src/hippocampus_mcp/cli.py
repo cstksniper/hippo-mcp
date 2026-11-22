@@ -916,12 +916,14 @@ def cmd_doctor(args: argparse.Namespace) -> int:
 
     model_env = os.environ.get("HIPPOCAMPUS_EMB_MODEL", "").strip()
     model = model_env or MODEL_DEFAULT
-    cache = os.environ.get("HIPPOCAMPUS_EMB_CACHE", "") or str(
-        Path.home() / ".cache" / "huggingface" / "hub")
-    slug = "models--" + model.replace("/", "--")
-    have_model = (Path(cache) / slug).exists()
-    print(f"{_mark(True, warn=not have_model)} Model     {model}"
-          f"{'' if have_model else f' (not found under {cache}; normal for a custom model directory, and first start may download it)'}")
+    try:
+        from .engine.embeddings import prospective_embedder_backend
+        backend = prospective_embedder_backend(model)
+    except Exception as exc:                              # noqa: BLE001 - doctor must not crash
+        backend = f"unknown ({type(exc).__name__})"
+    degraded = backend == "hash"
+    print(f"{_mark(True, warn=degraded)} Model     {model}  [backend: {backend}]"
+          f"{'' if not degraded else ' (no local artifacts and no [torch] extra -- retrieval would degrade to hash; run `hippocampus-mcp models --fetch`)'}")
     if not model_env:
         print("       ⚠ HIPPOCAMPUS_EMB_MODEL is not set; this checks the default model "
               "(actual model is determined by host config env)")
@@ -988,6 +990,57 @@ def cmd_doctor(args: argparse.Namespace) -> int:
 # --------------------------------------------------------------------------
 # Subcommand: models
 # --------------------------------------------------------------------------
+def _prefetch_model(want: str, cache: str) -> int:
+    """Shared bundle-fetch path for ``models --fetch`` and ``install --fetch-model``.
+
+    Loud by design: every failure names the next action. Returns a process
+    exit code (0 = ready, 1 = failed).
+    """
+    ready = None
+    try:
+        ready = local_model_dir(want, [cache])
+    except Exception:                                    # noqa: BLE001
+        ready = None
+    if ready:
+        print(f"[Ready] {want} already local: {ready}")
+        return 0
+
+    from .engine import model_fetch
+    known = model_fetch.available_bundles()
+    short = os.path.basename(want.rstrip("/\\"))
+    if short not in known:
+        print(f"\n[Failed] no published bundle for {want}")
+        print(f"Bundles available on the '{model_fetch.BUNDLE_RELEASE_TAG}' release:")
+        for name, upstream in known.items():
+            print(f"  - hippocampus-mcp models --fetch {upstream}")
+        print("Torch-based users: install the [torch] extra instead -- first start")
+        print("then downloads the model via sentence-transformers (HF mirror aware).")
+        return 1
+
+    print(f"Prefetch model   : {want} (bundle: {model_fetch.asset_name_for_model(want)})")
+    print(f"Cache root       : {cache}")
+    print("URLs tried in order: HIPPOCAMPUS_FETCH_URLS override > github direct > ghproxy mirror.")
+    try:
+        report = model_fetch.fetch_model_bundle(want, cache)
+    except Exception as e:                               # noqa: BLE001
+        print(f"\n[Failed] {want} fetch failed: {type(e).__name__}: {e}")
+        print("Options (lowest cost first):")
+        print("  1) Retry -- interrupted downloads resume where they stopped")
+        print(f"  2) Use a mirror: set {model_fetch.ENV_FETCH_URLS}="
+              f"'https://<your-mirror>/releases/download/{model_fetch.BUNDLE_RELEASE_TAG}/{{asset}}' and rerun")
+        print(f"  3) Manual placement: unpack the bundle zip under {cache}{os.sep}{short}{os.sep} "
+              f"(onnx/ + tokenizer.json)")
+        print("  4) English baseline instead (much smaller): "
+              "`hippocampus-mcp models --fetch sentence-transformers/all-MiniLM-L6-v2`")
+        return 1
+    if report.get("status") == "already_local":
+        print(f"[Ready] {want} already local: {report['dir']}")
+    else:
+        print(f"[Done] {want} is ready ({report.get('dim', '?')} dimensions, "
+              f"onnx backend, cached at {cache})")
+    return 0
+
+
 def cmd_models(args: argparse.Namespace) -> int:
     """List the local embedding model cache and reclaim redundancy on demand.
 
@@ -1028,54 +1081,21 @@ def cmd_models(args: argparse.Namespace) -> int:
         protected.add(cfg.emb_model.strip())
 
     if args.fetch:
-        # Download the model ahead of time, at install time.
-        # Why this step must exist separately: the model is **downloaded on
-        # first start**; once offline / blocked, the MCP service simply fails
-        # to start, which inside the host looks like "not a single tool" --
-        # neither user nor agent can tell the root cause is a missing model.
-        # Move this to install time, and on failure lay out the three ways
-        # out clearly.
+        # Prefetch the embedding model at install time (lean bundle path).
+        # Why this step must exist separately: without artifacts a fresh
+        # install silently degrades to the hash embedder -- inside the host
+        # that looks like "not a single tool" or "retrieval is just worse",
+        # neither of which tells the user the root cause. Fetching at install
+        # time turns that into a loud, fixable step.
+        # (2026-11-22 rewrite: the old path imported sentence_transformers --
+        # an optional [torch] extra -- so on the lean core it ALWAYS failed
+        # with ImportError. The bundle path is stdlib-only; see
+        # engine/model_fetch.py for the URL/resume/verification contract.)
         want = args.fetch if isinstance(args.fetch, str) else default_id
-        ready = None
-        try:
-            ready = local_model_dir(want, roots)
-        except Exception:                                    # noqa: BLE001
-            ready = None
-        if ready:
-            print(f"[Ready] {want} already local: {ready}")
-            return 0
-
-        # setdefault's return value is the effective value: no need to read
-        # the env var again (the root-layer exemption list pins cli.py's env
-        # read count; see the table in config.py).
-        hf_endpoint = os.environ.setdefault(
-            "HF_ENDPOINT", "https://hf-mirror.com")
         cache = os.path.abspath(os.path.expanduser(
             args.cache or (roots[0] if roots else
                            os.path.join(_default_libs_path(), "models"))))
-        print(f"Prefetch model   : {want}")
-        print(f"Cache root       : {cache} (using HF mirror {hf_endpoint})")
-        print("First download is about 90MB (English baseline) to 400MB (Chinese engine); please wait...")
-        try:
-            from sentence_transformers import SentenceTransformer
-            st = SentenceTransformer(want, cache_folder=cache)
-            # Actually run one encode: checking "files are in place" is not
-            # enough -- broken weights/tokenizers only explode on first
-            # retrieval, by which time the user is already inside a session.
-            vec = st.encode(["warmup"], show_progress_bar=False)
-            dim = int(len(vec[0]))
-        except Exception as e:                               # noqa: BLE001
-            print(f"\n[Failed] {want} download or load failed: {type(e).__name__}: {e}")
-            print("Three options (lowest cost first):")
-            print(f"  1) Retry with a mirror: set HF_ENDPOINT=https://hf-mirror.com and rerun"
-                  f" `hippocampus-mcp models --fetch {want}`")
-            print(f"  2) Manual placement: put the model directory under {cache}{os.sep}<model name>/ and rerun this command")
-            print("  3) Switch to the English baseline (88MB; Chinese retrieval will degrade significantly): "
-                  "`hippocampus-mcp models --fetch all-MiniLM-L6-v2`，"
-                  "and add --model all-MiniLM-L6-v2 to setup")
-            return 1
-        print(f"[Done] {want} is ready ({dim} dimensions, cached at {cache})")
-        return 0
+        return _prefetch_model(want, cache)
 
     if args.json:
         print(json.dumps({
@@ -1203,6 +1223,20 @@ def cmd_install(args: argparse.Namespace) -> int:
     for line in apply_install(home, actions):
         print(" done:", line)
     print("-" * 60)
+    if getattr(args, "fetch_model", False):
+        # Optional model prefetch right after deployment ("one-stop install"):
+        # default OFF so offline installs stay silent and fast.
+        from .engine.embeddings import (
+            _cache_roots,
+            _default_libs_path,
+            default_model_for_system,
+        )
+        want, _why = default_model_for_system()
+        roots = _cache_roots(_default_libs_path())
+        cache = roots[0] if roots else os.path.join(_default_libs_path(), "models")
+        rc = _prefetch_model(want, os.path.abspath(os.path.expanduser(cache)))
+        if rc != 0:
+            return rc
     print("Next: restart the host (hook/config changes need a NEW session), "
           "then run `hippocampus doctor` to verify the chain.")
     return 0
@@ -1276,7 +1310,24 @@ def cmd_init(args: argparse.Namespace) -> int:
     """Zero-step project onboarding (usability closure WS-3): create a
     library for the project, bind workspace_root -> library in the
     user-level task directory, and (by default) write the memory-discipline
-    block into the project AGENTS.md. Idempotent; no daemon needed."""
+    block into the project AGENTS.md. Idempotent; no daemon needed.
+
+    With ``--dsh``: DeepSeek Harness companion onboarding (design doc
+    ``DSH虚拟人记忆_设计书_20261121.md`` §3.5) — additionally appends the
+    ``dsh-mcp-client`` patch entry and writes the companion's self-install
+    guide (memory-setup.md)."""
+    if getattr(args, "dsh", False):
+        from .init_dsh import run_init_dsh
+        try:
+            report = run_init_dsh(
+                args.project, dsh_home=args.dsh_home, profile=args.profile,
+                name=args.name, root=args.root, user_lib=args.user_lib,
+                agents=not args.no_agents)
+        except (NotADirectoryError, RuntimeError) as exc:
+            print(f"✗ init failed: {exc}", file=sys.stderr)
+            return 1
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+        return 0
     from .init_project import run_init
     try:
         report = run_init(
@@ -1642,6 +1693,10 @@ def build_parser() -> argparse.ArgumentParser:
                     help="Enable the Stop observation-capture lane (WS-1, "
                          "default OFF). Re-run install without this flag to "
                          "turn capture back off.")
+    si.add_argument("--fetch-model", action="store_true",
+                    help="After deployment, prefetch the default embedding model bundle "
+                         "(onnx; ~226MB Chinese / ~90MB English). Default OFF so offline "
+                         "installs stay silent; equivalent to `models --fetch`")
     si.set_defaults(func=cmd_install)
 
     sm = sub.add_parser(
@@ -1710,6 +1765,18 @@ def build_parser() -> argparse.ArgumentParser:
                           "~/.hippocampus_mcp/user)")
     ini.add_argument("--no-agents", action="store_true",
                      help="Skip writing the AGENTS.md discipline block")
+    ini.add_argument("--dsh", action="store_true",
+                     help="DeepSeek Harness companion onboarding: bind the "
+                          "workspace to a dedicated library, append the "
+                          "dsh-mcp-client entry to the profile patch, and "
+                          "write the persona/discipline block + the "
+                          "companion's self-install guide (memory-setup.md)")
+    ini.add_argument("--dsh-home", default="",
+                     help="Harness home override (default: DSH_HOME env, "
+                          "else ~/.dsh)")
+    ini.add_argument("--profile", default="web",
+                     help="DSH profile name whose patch receives the MCP "
+                          "entry (default: web)")
     ini.set_defaults(func=cmd_init)
 
     tr = sub.add_parser(

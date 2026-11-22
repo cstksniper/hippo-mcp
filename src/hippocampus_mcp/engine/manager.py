@@ -972,7 +972,10 @@ class MemoryManager:
         self,
         query: str | None = None,
         top_k: int = 5,
-        use_lnn: bool = True,
+        # OFF by default since 2026-11-09: the blend measured net-negative
+        # (untrained CfC -> near-orthogonal state; see server.recall rationale
+        # and _probe_out/_probe_lnn_ablation_text.py).
+        use_lnn: bool = False,
         sample: bool = False,
         allow_ids: set[str] | None = None,
         client: str | None = None,
@@ -982,17 +985,21 @@ class MemoryManager:
         """Recall memories relevant to the query.
 
         Flow:
-            1. Generate the query vector (LNN's h(t) or plain text embedding).
+            1. Generate the query vector (plain text embedding by default; the
+               LNN temporal state is opt-in via ``use_lnn``).
             2. Retrieve top_k * 3 candidates from the vector store.
             3. Rank comprehensively with the scoring engine.
             4. Optional: distance-weighted sampling adds exploration.
 
         Args:
             query: query text. None uses the LNN's current state as the
-                implicit query.
+                implicit query (never the default; callers pass text).
             top_k: number of memories to return.
-            use_lnn: whether to blend the LNN into the query vector (False uses
-                the plain text embedding).
+            use_lnn: blend the LNN temporal state into the query vector.
+                **Defaults to False** (2026-11-09): the blend measured
+                net-negative — the production CfC is untrained, so its state is
+                near-orthogonal to the embedding space and only dilutes the
+                query. True restores the pre-2026-11-09 behaviour.
             sample: use sampling (True) or greedy ranking (False).
             allow_ids: search only within this id whitelist (tag filtering
                 narrows the candidate set **before** retrieval). None = no

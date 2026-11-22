@@ -190,10 +190,11 @@ hippocampus-mcp models --fetch
 hippocampus-mcp install   # or: hippocampus-mcp setup --host zcode
 ```
 
-> The core install is torch-free (~150 MB of dependencies). The first model fetch
-> downloads the embedding model (90–390 MB depending on locale), and the first
-> recall after a cold start takes tens of seconds while the model loads — both are
-> one-time costs.
+> The core install is torch-free (~150 MB of dependencies). `models --fetch` downloads a
+> pre-exported onnx bundle (~90 MB English / ~226 MB Chinese, locale-selected) into the model
+> cache — no torch needed. Download tries GitHub direct first, then a mirror; set
+> `HIPPOCAMPUS_FETCH_URLS` to point at a private mirror. The first recall after a cold start
+> takes tens of seconds while the model loads — a one-time cost.
 >
 > China mirrors lag new releases; if pip cannot find the package, retry with the
 > official index: `python -m pip install hippocampus-mcp -i https://pypi.org/simple`

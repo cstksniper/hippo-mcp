@@ -476,7 +476,14 @@ async def store_memory(
 async def recall(
     query: str = "",
     top_k: int = 5,
-    use_lnn: bool = True,
+    # LNN temporal state is OFF by default (2026-11-09). Measured net-negative
+    # on a 9.9k-record Chinese library: the production CfC was never trained,
+    # so its output is near-orthogonal to the embedding space (cos 0.001
+    # against every library vector) and the 0.4 blend pulled the query vector
+    # ~34 degrees off -- top-5 mean similarity 0.4839 -> 0.4793, worse on
+    # 13/16 queries, better on 0. Pass use_lnn=True to restore the old path.
+    # Evidence: _probe_out/_probe_lnn_ablation_text.py, _probe_out/_probe_lnn_info.py
+    use_lnn: bool = False,
     sample: bool = False,
     filter_tags: str = "", library: str = "",
     scope: str = "project", libraries: str = "",

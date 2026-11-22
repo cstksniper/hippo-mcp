@@ -1876,7 +1876,7 @@ class HippoBrain(_SessionMixin, _EntityLexiconMixin, _PureMixin):
         client: str | None = None,
         occurred_after: float = 0.0,
         occurred_before: float = 0.0,
-        use_lnn: bool = True,
+        use_lnn: bool = False,
         sample: bool = False,
     ) -> list[dict[str, Any]]:
         """Recall memories: hard relevance floor, MMR, pin decay, entity bonus.
@@ -1890,8 +1890,10 @@ class HippoBrain(_SessionMixin, _EntityLexiconMixin, _PureMixin):
                 Narrow the candidate pool BEFORE retrieval; post-filtering
                 would miss items ranked outside top_k. The lexical lane obeys
                 the same whitelist.
-            use_lnn: Forwarded to ``manager.recall``. Defaults to True, the
-                value previously hard-coded here.
+            use_lnn: Forwarded to ``manager.recall``. **Defaults to False**
+                (2026-11-09): the LNN query blend measured net-negative — the
+                production CfC is untrained, so its state is near-orthogonal to
+                the embedding space. True restores the previous behaviour.
             sample: Forwarded to ``manager.recall``. Defaults to False.
 
         R1 (2026-11-06): the scoring orchestration now lives in the shared,

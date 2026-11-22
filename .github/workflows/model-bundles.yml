@@ -1,0 +1,102 @@
+name: Model bundles
+
+# Builds the onnx embedding bundles published on the `model-bundles` release
+# (consumed by `hippocampus-mcp models --fetch`, see engine/model_fetch.py).
+# Manual dispatch only: the export needs torch and a full model download, so
+# it never belongs on push/PR lanes.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - model-id: BAAI/bge-base-zh-v1.5
+            short: bge-base-zh-v1.5
+          - model-id: sentence-transformers/all-MiniLM-L6-v2
+            short: all-MiniLM-L6-v2
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install torch (CPU) + sentence-transformers + the package itself
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install sentence-transformers
+          python -m pip install -e .
+
+      - name: Materialize the model directory (download + save clean ST layout)
+        run: |
+          python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('${{ matrix.model-id }}').save('${{ matrix.short }}')"
+
+      - name: Export onnx artifacts
+        run: |
+          python scripts/export_onnx.py --model ${{ matrix.short }} --opset 17
+
+      - name: Parity gate (onnx vs torch, cos >= 0.999)
+        run: |
+          python scripts/verify_onnx_parity.py --model-dir ${{ matrix.short }}
+
+      - name: Fetch upstream LICENSE for the bundle README
+        run: |
+          # Tolerate a missing upstream license file: the packager then writes
+          # an explicit "verify the model card" note instead.
+          curl -fsSL "https://raw.githubusercontent.com/${{ matrix.model-id }}/main/LICENSE" -o LICENSE.upstream || \
+          curl -fsSL "https://raw.githubusercontent.com/${{ matrix.model-id }}/master/LICENSE" -o LICENSE.upstream || \
+          echo "no upstream LICENSE found"
+
+      - name: Build the bundle zip
+        run: |
+          ARGS="--model-dir ${{ matrix.short }} --out staging --source-repo ${{ matrix.model-id }}"
+          [ -s LICENSE.upstream ] && ARGS="$ARGS --license-file LICENSE.upstream"
+          python scripts/build_model_bundle.py $ARGS
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bundle-${{ matrix.short }}
+          path: staging/*
+          retention-days: 5
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: staging-merged
+          merge-multiple: true
+
+      - name: Collect SHA256SUMS.txt
+        working-directory: staging-merged
+        run: |
+          # Format matches engine/model_fetch.py::_parse_sha256sums:
+          # "<sha256>  <asset-name>", one line per bundle.
+          sha256sum -- bge-base-zh-v1.5-onnx.zip all-MiniLM-L6-v2-onnx.zip > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Upload to the rolling model-bundles release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view model-bundles --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
+            || gh release create model-bundles \
+                 --repo "$GITHUB_REPOSITORY" \
+                 --title "Embedding model bundles (onnx)" \
+                 --notes "Pre-exported onnx bundles for \`hippocampus-mcp models --fetch\`. Rebuilt and re-uploaded (clobber) on every workflow run; SHA256SUMS.txt is the trust root, mirrors are not."
+          gh release upload model-bundles --repo "$GITHUB_REPOSITORY" --clobber \
+            staging-merged/bge-base-zh-v1.5-onnx.zip \
+            staging-merged/all-MiniLM-L6-v2-onnx.zip \
+            staging-merged/SHA256SUMS.txt

@@ -54,19 +54,26 @@ def _load_template() -> str:
     return (_TEMPLATES_DIR / "agents_snippet.md").read_text(encoding="utf-8")
 
 
-def write_agents_snippet(project: str) -> str:
+def write_agents_snippet(project: str, *, block: str = "",
+                         begin_mark: str = "", end_mark: str = "") -> str:
     """Ensure ``<project>/AGENTS.md`` carries the marker block.
+
+    ``block`` overrides the template body (caller-supplied snippet, e.g. the
+    DSH companion variant); ``begin_mark``/``end_mark`` override the idempotent
+    markers so different variants never clobber each other's blocks.
 
     Returns one of ``created`` / ``appended`` / ``replaced`` / ``unchanged``.
     Content OUTSIDE the markers is never touched.
     """
-    block = _load_template().strip()
+    block = (block or _load_template()).strip()
+    begin = begin_mark or _BEGIN_MARK
+    end = end_mark or _END_MARK
     path = Path(project) / "AGENTS.md"
     if path.exists():
         text = path.read_text(encoding="utf-8")
-        if _BEGIN_MARK in text and _END_MARK in text:
-            pre = text.split(_BEGIN_MARK, 1)[0]
-            post = text.split(_END_MARK, 1)[1]
+        if begin in text and end in text:
+            pre = text.split(begin, 1)[0]
+            post = text.split(end, 1)[1]
             new = pre + block + "\n" + post
             if new == text:
                 return "unchanged"

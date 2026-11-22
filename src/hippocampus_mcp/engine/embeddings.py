@@ -373,6 +373,41 @@ def default_model_for_system() -> tuple[str, str]:
     return ZH_DEFAULT_MODEL_NAME, "zh_download"
 
 
+def _sentence_transformers_available() -> bool:
+    """Import-probe for the optional ST backend (no import side effects)."""
+    try:
+        from importlib.util import find_spec
+        return find_spec("sentence_transformers") is not None
+    except (ImportError, ValueError):  # pragma: no cover - broken sys.path
+        return False
+
+
+def prospective_embedder_backend(model_name: str) -> str:
+    """Classify which backend would serve ``model_name`` **right now**, without
+    loading any weights.
+
+    Read-only lookahead for ``init --dsh`` self-checks and ``doctor``; answers
+    "if a session attached with this model name today, what would it get?":
+
+    - ``onnx``           -- local dir found and ``onnx/`` artifacts present
+      (the lean default path);
+    - ``torch``          -- local dir found but no onnx artifacts, and the
+      optional sentence-transformers backend is importable;
+    - ``torch-download`` -- no local dir yet, but ST is importable (first
+      start would download via the torch path);
+    - ``hash``           -- nothing available (degraded: semantic recall is
+      broken; run ``hippocampus-mcp models --fetch``).
+    """
+    roots = _cache_roots(_default_libs_path())
+    local = local_model_dir(model_name, roots)
+    if local:
+        from .onnx_embedder import find_onnx_artifacts
+        if find_onnx_artifacts(local) is not None:
+            return "onnx"
+        return "torch" if _sentence_transformers_available() else "hash"
+    return "torch-download" if _sentence_transformers_available() else "hash"
+
+
 def _emit_warning(msg: str) -> None:
     """Send the warning through both logging and stderr.
 

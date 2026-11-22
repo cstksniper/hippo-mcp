@@ -54,7 +54,8 @@ class RecallRequest:
 
     query: str
     top_k: int = 5
-    use_lnn: bool = True
+    #: Off by default (2026-11-09): the LNN query blend measured net-negative.
+    use_lnn: bool = False
     sample: bool = False
     allow_ids: set[str] | None = None
     client: str | None = None
