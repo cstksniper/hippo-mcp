@@ -261,7 +261,18 @@ warns when it is not the BGE Chinese model while the server is configured for on
 
 Before removing HippoMCP:
 
-1. Export memories if needed with `export_memories`.
+1. Export memories if needed: `export_memories` for a text-only copy, or
+   `hippo-mcp export --out memories.zip --persist-dir <library dir>` for a
+   complete portable archive (includes vectors and sidecars). On the new
+   machine, validate with `hippo-mcp import memories.zip --dry-run` first.
+   An agent can do both halves itself under the default tool profile: advertise
+   `archive_export` / `archive_import` through `hippo_help`, then call them via
+   `hippo_extra(action=..., args='{"out_dir": ""}' / '{"archive": "<zip path>"}')`.
+   Export writes only into the agent workspace or a configured library root; import
+   creates a new library under a configured root, never overwrites, and binds the
+   agent's current workspace unless that workspace already points elsewhere (the
+   skipped reason is returned in `binding.reason`). Dispatchers are not registered
+   under `HIPPOCAMPUS_TOOL_PROFILE=full`, so use the CLI commands there.
 2. Note the active `HIPPOCAMPUS_PERSIST_DIR` and model cache locations.
 3. Remove the MCP entry with the host's normal editor or configuration flow.
 4. Keep `AGENTS.md` and `MEMORY.md` as the surviving fallback layer.

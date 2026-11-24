@@ -160,6 +160,10 @@ from .server_runtime.composition import (_LIB_PORTS,  # noqa: F401 (re-export)
                                          _bootstrap_service, _build_brain,
                                          _maintain_service, _organize_service,
                                          _recall_service, _write_service)
+# Agent-facing archive actions are dispatcher-only (admin group): reachable via
+# hippo_help -> hippo_extra, but they do not add to the declared tool surface.
+from .server_runtime.archive_ops import (archive_export,  # noqa: F401 (re-export)
+                                         archive_import)
 # The **pure predicates** of the home-library write boundary (write-class tool
 # list / normalized comparison / three-valued permission / rejection text) live
 # in domain/write_boundary.py — placed there so they can be unit-tested with zero

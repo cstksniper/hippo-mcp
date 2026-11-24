@@ -81,6 +81,10 @@ _TOOL_GROUPS: dict[str, str] = {
     # increase for the common profile; reachable from both the full profile
     # and hippo_extra.
     "drift_audit": "admin",
+    # Whole-library zip export/import for agent-assisted machine migration.
+    # Admin group ⇒ hidden from the common profile (zero resident tokens),
+    # but listed by hippo_help and callable through hippo_extra.
+    "archive_export": "admin", "archive_import": "admin",
     # Information map layer (state register). Placed in its own map group
     # ⇒ zero token increase for the common surface; reachable from full and
     # hippo_extra; setting HIPPOCAMPUS_TOOL_PROFILE=map explicitly gives the

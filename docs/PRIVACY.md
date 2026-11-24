@@ -106,6 +106,27 @@ export_memories
 
 Exports contain memory content but not embedding vectors.
 
+For moving a whole library to another machine, use the CLI archive instead:
+
+```bash
+hippo-mcp export --out memories.zip --persist-dir <library dir>
+hippo-mcp import memories.zip --into <new library dir> --dry-run
+hippo-mcp import memories.zip --into <new library dir>
+```
+
+Unlike `export_memories`, a `.zip` archive contains **full memory content,
+embedding vectors, derived layers and every sidecar** (task directory,
+lexicon, ledger, maps). It is a complete portable copy: treat the file as
+sensitive data, pass `--force` / `--replace` deliberately, and keep the same
+embedding model on the destination machine or vectors will not be reusable.
+No files are written on a `--dry-run` import or when the target already exists.
+
+Agents can call the same capability through `hippo_help` / `hippo_extra`
+(`archive_export`, `archive_import`). Their write surface is narrower than the CLI:
+exports only into the agent workspace or a configured library root, imports only
+into a configured root, and neither an existing archive nor an existing library is
+overwritten. The agent still hands the user an absolute path to the sensitive zip.
+
 ## 6. Backups, retention, and encryption
 
 - The memory directory is local data. Protect it with normal filesystem permissions.

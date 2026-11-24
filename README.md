@@ -373,9 +373,27 @@ Set `HIPPOCAMPUS_TOOL_PROFILE=full` to expose the full surface.
 | `hippo-mcp init --dsh <workspace>` | DeepSeek Harness companion onboarding: bind a library, write the MCP patch entry, persona/discipline block, and a self-install guide (idempotent; no daemon needed) |
 | `hippo-mcp import-dsh --workspace <path>` | Import a workspace's past DSH session logs into its bound library (idempotent; requires a running memory service) |
 | `hippo-mcp tree` | Read-only library tree: markdown overview, or a single-file HTML viewer with `--html --out`; run inside a bound workspace it locates the library automatically |
+| `hippo-mcp export --out memories.zip` | Export a whole library (memories, vectors, layers, sidecars) to a portable zip; `--persist-dir` / `--project` select the source, `--force` replaces an existing archive |
+| `hippo-mcp import memories.zip` | Import into a **new** library by default; `--into DIR` picks a path, `--replace` backs up an existing target first, `--dry-run` only validates. Add `--bind-workspace PATH` to bind the imported library to a workspace |
 | `hippo-mcp models` / `--fetch` / `--prune` | Inspect, download, and reclaim embedding-model caches |
 | `python scripts/reembed.py --all` | Backfill vectors after switching the embedding model |
 | `python scripts/import_md.py --dir <md dir> --project <name>` | Bulk-import Markdown documentation into a library |
+
+Agents can perform the same migration without shell access to the CLI. Under the default
+profile, call `hippo_help`, then `hippo_extra(action="archive_export", args='{"out_dir": ""}')`
+to snapshot the current library into the agent's working directory and hand the returned
+absolute zip path to the user. On the other machine the user supplies that path; call
+`hippo_extra(action="archive_import", args='{"archive": "<zip path>"}')` to validate and
+create a new library under a configured root. These are dispatcher-only admin actions:
+they do not add resident tools. Exports are confined to the agent workspace or a
+configured library root; imports never overwrite or create a duplicate library, and bind
+the agent's current workspace unless it already points to another library (the reason is
+returned in `binding.reason`). With `HIPPOCAMPUS_TOOL_PROFILE=full` the dispatchers are
+not registered — use the CLI commands above.
+
+> **Scope note:** an archive covers Hippo memories only (text + vectors). A companion
+> agent's persona, growth ledger, and event stream (e.g. dsh-fish) are **not** included;
+> move those with that agent's own backup/transfer. This same note is printed on export.
 
 See [`docs/INTEGRATION.md`](https://github.com/cstksniper/hippo-mcp/blob/main/docs/INTEGRATION.md)
 section 10 for model selection rules and the full switching procedure.

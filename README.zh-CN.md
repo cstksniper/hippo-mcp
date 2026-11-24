@@ -401,6 +401,32 @@ hippo-mcp tree --state all                    # markdown 总览（含 superseded
 
 只读命令（sqlite 以 `mode=ro` 打开，对活库安全）。省略 `--persist-dir` 时按用户级任务目录反查当前工作区绑定的库。默认不带 `--full` 是 60 字符预览的纯预览导出（页头有提示）；`--full` 才嵌全文——导出文件包含库内容，落点自行指定。用户级库默认零正文且拒绝 `--full`。
 
+### 跨机迁移：整库导出 / 导入（export / import）
+
+```bash
+hippo-mcp export --out memories.zip --persist-dir <库目录>   # 整库打包
+hippo-mcp import memories.zip --dry-run                      # 只校验、不落盘
+hippo-mcp import memories.zip --bind-workspace <新工作区>     # 导入成新库并绑定工作区
+```
+
+导出包是**完整快照**：记忆正文 + 向量 + 派生层 + 任务目录/词表/账本等旁挂文件，
+不只是 `export_memories` 的文字列表；sqlite 库走 `VACUUM INTO` 一致快照，不需要停服务。
+导入默认新建库、绝不覆盖；要写到指定目录用 `--into DIR`，目标已存在时必须显式 `--replace`
+（旧库先搬成 `.bak-<时间戳>`）。归档内含全部内容，请按敏感文件保管；新机器上的嵌入模型
+要与原库一致，否则向量不可复用。库自身的 `library.json` id 与 `directory.json` 里指向本库的
+路径会在导入时按新路径重绑，指向其它库的条目原样保留并在摘要中提示。
+
+Agent 也能自己完成同一流程（无需用户敲命令）：它先 `hippo_help` 找到
+`archive_export` / `archive_import`，再用 `hippo_extra(action="archive_export", args='{"out_dir": ""}')`
+导出到自己的工作目录，把返回的 zip 绝对路径交给用户；用户换机后把路径告诉 Agent，
+Agent 用 `hippo_extra(action="archive_import", args='{"archive": "<zip 路径>"}')` 导入。
+这两个是派发器里的 admin action，不增加常驻工具数；导出写入只允许落在 Agent 工作区或已配置库根，
+导入只新建库、绝不覆盖，默认绑定 Agent 当前工作区（若已绑到别的库则跳过并说明原因）。
+使用 `HIPPOCAMPUS_TOOL_PROFILE=full` 时不注册派发器，请改用上面的 CLI 命令。
+
+> **范围说明**：归档只含 Hippo 的记忆（正文 + 向量），**不含**陪伴 agent 的人格、成长账本与事件流
+> （如大肥鱼 / dsh-fish）；这些要用该 agent 自己的备份/迁移单独搬。导出时也会打印这条提示。
+
 ### 看不到 MCP 工具时
 
 ```bash

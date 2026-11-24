@@ -762,6 +762,12 @@ ENV_MAP: dict[str, str] = {
 #   key exactly as launcher.main() does (DAEMON_LIBRARY / EMB_MODEL /
 #   DAEMON_VERSION) and pass LIBRARY / MODEL through on restart. Same
 #   rationale as the existing ``context`` HELLO pass-through.
+# | cli.py | +4 | DSH companion path and history import: ``DSH_HOME``
+#   discovery, the ``import-dsh`` one-shot client's HELLO pass-through
+#   (DAEMON_LIBRARY / EMB_MODEL / DAEMON_VERSION / PERSIST_DIR), and the
+#   ``_daemon_target_env_ok`` pin check — all read the raw host env because
+#   they must see exactly what the host launcher sees, not config-parsed
+#   values. Same rationale as ``context`` / ``stop`` / ``restart``.
 
 #: bool field → semantic type (A/B/C/D, see the comment above). The four
 #: pre-migration scattered points each wrote their own rules; at

@@ -1573,6 +1573,129 @@ def cmd_tree(args: argparse.Namespace) -> int:
         return 2
 
 
+def _resolve_library_dir(args: argparse.Namespace) -> str:
+    """Library directory for read-only library commands (same order as tree).
+
+    Explicit ``--persist-dir`` wins; otherwise the workspace binding is
+    reverse-looked-up; otherwise the default library is used. No extra
+    environment reads: the resolution helpers already go through config.
+    """
+    if getattr(args, "persist_dir", None):
+        return str(Path(args.persist_dir).expanduser())
+    workspace = os.path.abspath(getattr(args, "project", None) or os.getcwd())
+    bound = _library_for_workspace(workspace)
+    if bound:
+        print(f"note: library resolved from workspace binding: {bound}",
+              file=sys.stderr)
+        return bound
+    print(f"note: no workspace binding for {workspace}; using default "
+          f"library {LIBRARY_DEFAULT}", file=sys.stderr)
+    return str(Path(LIBRARY_DEFAULT).expanduser())
+
+
+def cmd_export(args: argparse.Namespace) -> int:
+    """Export a whole library to a portable zip archive (memories + vectors
+    + layers + sidecars). The archive contains full content: keep it private.
+    """
+    from .library.archive import ArchiveError, export_archive
+    from .tree_view import is_user_library, library_kind
+
+    persist = _resolve_library_dir(args)
+    if library_kind(persist) is None:
+        print(f"error: not a hippocampus library (no hippocampus.db / "
+              f"memories.json): {persist}", file=sys.stderr)
+        return 2
+    if is_user_library(persist):
+        print("note: this is the user library; the archive contains all "
+              "user-level memories — store the zip privately", file=sys.stderr)
+    try:
+        result = export_archive(persist, args.out, force=bool(args.force),
+                                name=(args.name or None))
+    except (ArchiveError, OSError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    print(f"exported {result['archive']}")
+    print(f"library: {result['name']} | backend: {result['backend']} | "
+          f"memories: {result['memory_count']} | files: {result['files']} | "
+          f"size: {result['bytes'] / 1024.0:.1f} KB")
+    print("the archive contains full memory content; store it securely")
+    print("note: this archive covers Hippo memories only (text + vectors); "
+          "a companion agent's persona, growth ledger and event stream "
+          "(e.g. dsh-fish) are not included - move those with that agent's "
+          "own backup/transfer")
+    return 0
+
+
+def cmd_import(args: argparse.Namespace) -> int:
+    """Import a library archive. Default = a NEW library (never overwrite);
+    ``--into`` picks an explicit directory, ``--replace`` backs it up first.
+    """
+    from .library import default_roots
+    from .library.archive import (ArchiveError, import_archive,
+                                  inspect_archive, safe_name)
+
+    archive_path = str(Path(args.archive).expanduser())
+    try:
+        checked = inspect_archive(archive_path)
+    except (ArchiveError, OSError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    manifest = checked["manifest"]
+    source = manifest.get("source") or {}
+    print(f"archive: {archive_path}")
+    print(f"library: {source.get('name') or '?'} | backend: "
+          f"{source.get('backend') or '?'} | memories: "
+          f"{source.get('memory_count')} | files: {len(checked['members'])}")
+    print(f"source machine path: {source.get('path') or '?'}")
+
+    if args.into:
+        target = str(Path(args.into).expanduser())
+    else:
+        roots = default_roots()
+        root = roots[0] if roots else os.path.join(
+            os.path.expanduser("~"), ".hippocampus_mcp")
+        base = os.path.join(os.path.expanduser(root),
+                            safe_name(args.name or source.get("name") or "imported"))
+        target = base
+        suffix = 2
+        while os.path.exists(target) and suffix <= 9:
+            target = f"{base}-{suffix}"
+            suffix += 1
+        if os.path.exists(target):
+            print(f"error: no free import name under {root} (2..9 all taken)",
+                  file=sys.stderr)
+            return 2
+    print(f"import target: {target}")
+    if args.dry_run:
+        print("dry-run: nothing was written")
+        return 0
+    if os.path.exists(target) and not args.replace:
+        print(f"error: target already exists: {target} "
+              "(choose another --into, or pass --replace to back it up)",
+              file=sys.stderr)
+        return 2
+    try:
+        result = import_archive(archive_path, target,
+                                replace=bool(args.replace),
+                                bind_workspace=(args.bind_workspace or ""),
+                                user_lib=(args.user_lib or ""))
+    except (ArchiveError, OSError, ValueError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    print(f"imported into {result['target']}")
+    if result.get("unmapped_entries"):
+        print(f"note: {result['unmapped_entries']} task-directory entry/entries "
+              "still point at other libraries on the source machine; "
+              "rebind them manually if needed", file=sys.stderr)
+    if result.get("backup"):
+        print(f"previous library backed up at {result['backup']}")
+    if result.get("bound_workspace"):
+        print(f"workspace bound: {result['bound_workspace']}")
+    print("verify with `hippo-mcp tree --persist-dir "
+          f"{result['target']}` before starting the service")
+    return 0
+
+
 def _daemon_target_env_ok() -> tuple[bool, str]:
     """R8 footgun guard (2026-11-08, hit for real during the from-zero test).
 
@@ -1917,6 +2040,52 @@ def build_parser() -> argparse.ArgumentParser:
                     help="Max entries rendered in the markdown tree "
                          "(default 200; counts stay complete)")
     tr.set_defaults(func=cmd_tree)
+
+    ex = sub.add_parser(
+        "export",
+        help="Export a whole memory library to a portable zip archive "
+             "(memories, vectors, layers and sidecars)")
+    ex.add_argument("--out", required=True, metavar="ARCHIVE.zip",
+                    help="Zip file to write (must not exist unless --force); "
+                         "it contains full memory content")
+    ex.add_argument("--persist-dir", default=None,
+                    help="Library directory; omit to resolve the bound "
+                         "library from the workspace (see --project), "
+                         "falls back to " + LIBRARY_DEFAULT)
+    ex.add_argument("--project", default=None,
+                    help="Workspace root for library reverse lookup "
+                         "(default: current directory)")
+    ex.add_argument("--name", default="",
+                    help="Library name recorded in the archive "
+                         "(default: the library manifest name)")
+    ex.add_argument("--force", action="store_true",
+                    help="Replace an existing archive (default: refuse)")
+    ex.set_defaults(func=cmd_export)
+
+    im = sub.add_parser(
+        "import",
+        help="Import a library archive into a NEW library (never overwrite "
+             "by default)")
+    im.add_argument("archive", metavar="ARCHIVE.zip",
+                    help="Zip archive produced by `hippo-mcp export`")
+    im.add_argument("--into", default="",
+                    help="Target library directory (default: a new library "
+                         "under the first configured library root)")
+    im.add_argument("--name", default="",
+                    help="Target library name when --into is omitted "
+                         "(default: the archive's library name)")
+    im.add_argument("--replace", action="store_true",
+                    help="Back up an existing target before importing "
+                         "(default: refuse to touch it)")
+    im.add_argument("--bind-workspace", default="", metavar="PATH",
+                    help="After import, bind this workspace to the imported "
+                         "library in the user task directory")
+    im.add_argument("--user-lib", default="", metavar="DIR",
+                    help="User library for --bind-workspace "
+                         "(default: ~/.hippocampus_mcp/user)")
+    im.add_argument("--dry-run", action="store_true",
+                    help="Validate the archive and print the plan; write nothing")
+    im.set_defaults(func=cmd_import)
 
     sp_stop = sub.add_parser(
         "stop", help="Gracefully stop the shared daemon (saves state before exit)")
